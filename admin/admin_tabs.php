@@ -36,6 +36,4 @@ $currentPage = $_GET['page'] ?? 'cache';
         data-tab="announcement" data-url="?page=announcement">弹窗公告管理</div>
     <div class="tab <?php echo $currentPage === 'comments' ? 'active' : ''; ?>" 
         data-tab="comments" data-url="?page=comments">评论管理</div>
-    <div class="tab <?php echo $currentPage === 'update' ? 'active' : ''; ?>" 
-        data-tab="update" data-url="?page=update">系统更新</div>
 </div>
