@@ -306,9 +306,6 @@ if ($isLoggedIn) {
                 <div id="comments-content" class="tab-pane <?php echo $currentPage === 'comments' ? 'active' : ''; ?>">
                     <?php include 'admin_comments.php'; ?>
                 </div>
-                <div id="update-content" class="tab-pane <?php echo $currentPage === 'update' ? 'active' : ''; ?>">
-                    <?php include 'admin_update.php'; ?>
-                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -338,4 +335,5 @@ if ($isLoggedIn) {
     </script>
     <script src="admin_script.js"></script>
 </body>
+
 </html>
