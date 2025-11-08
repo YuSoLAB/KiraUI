@@ -1,4 +1,4 @@
-(简体中文)[/README_zh-cn.md]
+[简体中文](./README_zh-cn.md)
 # KiraUI
 An open-source specialized blog tool and content publishing platform, featuring lightweight design, ease of use, and easy customization.
 
