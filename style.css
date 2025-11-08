@@ -877,3 +877,452 @@ body.dark-mode .site-footer {
         margin-top: 30px;
     }
 }
+
+.auth-container {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 30px;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.auth-container h2 {
+    text-align: center;
+    margin-bottom: 24px;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #666;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.form-group small {
+    color: #999;
+    font-size: 12px;
+}
+
+.required {
+    color: #ff4d4f;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background: #6c5dfb;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+.form-hint {
+    text-align: center;
+    margin-top: 16px;
+    color: #666;
+}
+
+.form-hint a {
+    color: #6c5dfb;
+    text-decoration: none;
+}
+
+/* 导航栏右侧区域 */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto; /* 关键：推到最右边 */
+    flex-direction: row; /* 确保水平排列 */
+    flex-wrap: nowrap; /* 防止换行 */
+}
+
+/* 用户认证区域 */
+.user-auth {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* 用户欢迎文字 */
+.user-welcome {
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+body.dark-mode .user-welcome {
+    color: var(--dark-text);
+}
+
+/* 按钮样式调整 */
+.btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(155, 140, 255, 0.3);
+}
+
+.btn-login {
+    background: rgba(155, 140, 255, 0.1);
+    color: #6c5dfb;
+}
+
+.btn-register {
+    background: linear-gradient(180deg, var(--pink), var(--vio));
+    color: white;
+    border-color: transparent;
+}
+
+.btn-logout {
+    background: rgba(255, 77, 177, 0.1);
+    color: var(--pink);
+}
+
+/* 暗色模式下的按钮样式 */
+body.dark-mode .btn-login {
+    background: rgba(176, 160, 255, 0.15);
+    color: var(--dark-vio);
+}
+
+body.dark-mode .btn-register {
+    background: linear-gradient(180deg, var(--dark-pink), var(--dark-vio));
+    color: white;
+}
+
+body.dark-mode .btn-logout {
+    background: rgba(255, 102, 184, 0.15);
+    color: var(--dark-pink);
+}
+
+/* 按钮悬停效果 */
+.btn-small:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(155, 140, 255, 0.2);
+}
+
+.btn-login:hover {
+    background: rgba(155, 140, 255, 0.2);
+}
+
+.btn-register:hover {
+    background: linear-gradient(180deg, #ff3a9e, #8a78e6);
+}
+
+.btn-logout:hover {
+    background: rgba(255, 77, 177, 0.2);
+}
+
+/* 主题切换按钮样式调整 */
+.theme-toggle {
+    background: rgba(155, 140, 255, 0.1);
+    border: 1px solid rgba(155, 140, 255, 0.3);
+    border-radius: 8px;
+    padding: 0.5rem;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-toggle:hover {
+    background: rgba(155, 140, 255, 0.2);
+    transform: rotate(30deg);
+}
+
+body.dark-mode .theme-toggle {
+    background: rgba(176, 160, 255, 0.15);
+    border-color: rgba(176, 160, 255, 0.4);
+}
+
+/* 移动端响应式调整 */
+@media (max-width: 768px) {
+    .nav-right {
+        gap: 0.5rem;
+    }
+    
+    .user-welcome {
+        display: none; /* 移动端隐藏欢迎文字节省空间 */
+    }
+    
+    .btn-small {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    
+    .theme-toggle {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+}
+
+/* 超小屏幕调整 */
+@media (max-width: 480px) {
+    .nav-container {
+        padding: 0 1rem;
+    }
+    
+    .user-auth {
+        gap: 0.3rem;
+    }
+    
+    .btn-small {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* 认证页面样式 */
+.auth-container {
+  min-height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px;
+  background: linear-gradient(135deg, #fff7fd 0%, #f1eaff 100%); /* 整体风格的渐变背景 */
+}
+
+body.dark-mode .auth-container {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 36px;
+  border-radius: 24px; /* 大圆角匹配整体风格 */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.95) 100%);
+  backdrop-filter: blur(12px); /* 毛玻璃效果，与导航栏一致 */
+  border: 1px solid rgba(155, 140, 255, 0.3); /* 边框颜色匹配主题 */
+  box-shadow: 0 15px 35px rgba(155, 140, 255, 0.15); /* 阴影层次 */
+  transition: all 0.3s ease;
+}
+
+body.dark-mode .auth-card {
+    background: linear-gradient(180deg, rgba(42, 42, 66, 0.8) 0%, rgba(42, 42, 66, 0.95) 100%);
+    border-color: rgba(176, 160, 255, 0.35);
+    box-shadow: 0 15px 35px rgba(176, 160, 255, 0.1);
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-header h2 {
+    font-size: 26px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #ff4db1, #9b8cff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+body.dark-mode .auth-header h2 {
+    background: linear-gradient(90deg, var(--dark-pink), var(--dark-vio));
+}
+
+.auth-subtitle {
+    color: #6b6b7a;
+    font-size: 14px;
+}
+
+body.dark-mode .auth-subtitle {
+    color: var(--dark-sub);
+}
+
+.auth-form .form-group {
+    margin-bottom: 24px;
+}
+
+.auth-form .form-group label {
+  color: #666; /* 标签颜色 */
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px; /* 输入框圆角匹配按钮 */
+  border: 1px solid rgba(155, 140, 255, 0.3);
+  background: #ffffffaa;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+body.dark-mode .auth-form input {
+    background: rgba(42, 42, 66, 0.6);
+    border-color: rgba(176, 160, 255, 0.35);
+    color: var(--dark-text);
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: #9b8cff; /* 主题色边框 */
+  box-shadow: 0 0 0 3px rgba(155, 140, 255, 0.1); /* 发光效果 */
+}
+
+.form-hint, .auth-terms {
+  color: #7b7b8a;
+  font-size: 0.85rem;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.form-hint-right {
+    text-align: right;
+    margin-top: 6px;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.auth-terms {
+    margin-top: 20px;
+    font-size: 12px;
+    color: #7b7b8a;
+    text-align: center;
+}
+
+body.dark-mode .auth-container {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); /* 暗色渐变背景 */
+}
+
+body.dark-mode .auth-card {
+  background: linear-gradient(180deg, rgba(42, 42, 66, 0.8) 0%, rgba(42, 42, 66, 0.95) 100%);
+  border-color: rgba(176, 160, 255, 0.35);
+  box-shadow: 0 15px 35px rgba(176, 160, 255, 0.1);
+}
+
+body.dark-mode .auth-form .form-group label {
+  color: var(--dark-sub); /* 暗色模式标签颜色 */
+}
+
+body.dark-mode .auth-form input {
+  background: rgba(42, 42, 66, 0.6);
+  border-color: rgba(176, 160, 255, 0.35);
+  color: var(--dark-text); /* 输入文字颜色 */
+}
+
+.link {
+    color: #6c5dfb;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.link:hover {
+    color: #ff4db1;
+    text-decoration: underline;
+}
+
+.link-primary {
+    color: #6c5dfb;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.link-primary:hover {
+    color: #ff4db1;
+    text-decoration: underline;
+}
+
+.auth-theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.user-center {
+    padding: 2rem 0;
+}
+
+.profile-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 8px;
+    background: var(--card-bg);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.avatar-container {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.avatar-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary);
+}
+
+.tab-container {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tab-button {
+    padding: 0.5rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-button:hover, .tab-button.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .avatar-container {
+        flex-direction: column;
+        text-align: center;
+    }
+}

@@ -82,7 +82,7 @@ if ($search && !empty($articles)) {
 } else {
     $filtered_articles = $articles;
 }
-
+session_start();
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $per_page = 10;
 $total_articles = count($filtered_articles);
@@ -139,6 +139,7 @@ $paginated_articles = array_slice($filtered_articles, $offset, $per_page);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: nowrap;
         }
 
         .nav-logo {
@@ -290,6 +291,26 @@ $paginated_articles = array_slice($filtered_articles, $offset, $per_page);
             margin: 0 auto;
             max-width: 1200px;
         }
+
+        .nav-right {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 1rem !important;
+        }
+
+        .theme-toggle {
+            order: 1; /* 确保主题按钮在左边 */
+        }
+
+        .user-auth {
+            order: 2; /* 确保用户认证区域在右边 */
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -372,6 +393,7 @@ $paginated_articles = array_slice($filtered_articles, $offset, $per_page);
     <?php endif; ?>
     <nav class="navbar">
         <div class="nav-container">
+            <!-- Logo 部分 -->
             <a href="index.php" class="nav-logo">
                 <?php if (file_exists($imgDir . 'logo.ico')): ?>
                     <img src="img/logo.ico" alt="Logo" class="logo-img">
@@ -380,13 +402,34 @@ $paginated_articles = array_slice($filtered_articles, $offset, $per_page);
                 <?php endif; ?>
             </a>
             
+            <!-- 导航菜单 -->
             <ul class="nav-menu">
                 <li><a href="index.php" class="nav-link">首页</a></li>
                 <li><a href="index.php" class="nav-link">文章</a></li>
                 <li><a href="#" class="nav-link">关于</a></li>
                 <li><a href="#" class="nav-link">联系</a></li>
             </ul>
-            <button id="themeToggle" class="theme-toggle">🌙</button>
+            
+            <!-- 右侧操作区域 -->
+            <div class="nav-right">
+                <!-- 主题切换 -->
+                <button id="themeToggle" class="theme-toggle">🌙</button>
+                
+                <!-- 用户认证区域 -->
+                <div class="user-auth">
+                    <?php
+                    if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) {
+                        echo '<span class="user-welcome">欢迎，' . htmlspecialchars($_SESSION['user']['nickname']) . '</span>';
+                        echo '<a href="user_center.php" class="btn btn-small btn-login">用户中心</a>';
+                    } else {
+                        echo '<a href="login" class="btn btn-small btn-login">登录</a>';
+                        echo '<a href="register" class="btn btn-small btn-register">注册</a>';
+                    }
+                    ?>
+                </div>
+            </div>
+            
+            <!-- 移动端菜单按钮 -->
             <button class="nav-toggle" id="navToggle">
                 <span></span>
                 <span></span>

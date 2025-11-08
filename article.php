@@ -1,5 +1,7 @@
 <?php
-session_start(); 
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 if (!defined('ROOT_DIR')) {
     define('ROOT_DIR', __DIR__);
 }
@@ -601,6 +603,23 @@ $next_id = $id + 1;
             overflow-wrap: break-word;
         }
 
+        .comment-login-prompt {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .comment-login-prompt p {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        body.dark-mode .comment-login-prompt {
+            background: var(--dark-admin-card);
+        }
+
         body.dark-mode .replies {
             border-left-color: var(--dark-admin-border);
         }
@@ -613,17 +632,43 @@ $next_id = $id + 1;
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="article.php" class="nav-logo">
-                <img src="logo.ico" alt="YuSoLAB " class="logo-img">
+            <!-- Logo 部分 -->
+            <a href="index.php" class="nav-logo">
+                <?php if (file_exists($imgDir . 'logo.ico')): ?>
+                    <img src="img/logo.ico" alt="Logo" class="logo-img">
+                <?php else: ?>
+                    <img src="logo.ico" alt="YuSoLAB" class="logo-img">
+                <?php endif; ?>
             </a>
             
+            <!-- 导航菜单 -->
             <ul class="nav-menu">
                 <li><a href="index.php" class="nav-link">首页</a></li>
                 <li><a href="index.php" class="nav-link">文章</a></li>
                 <li><a href="#" class="nav-link">关于</a></li>
                 <li><a href="#" class="nav-link">联系</a></li>
             </ul>
-            <button id="themeToggle" class="theme-toggle">🌙</button>
+            
+            <!-- 右侧操作区域 -->
+            <div class="nav-right">
+                <!-- 主题切换 -->
+                <button id="themeToggle" class="theme-toggle">🌙</button>
+                
+                <!-- 用户认证区域 -->
+                <div class="user-auth">
+                    <?php
+                    if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) {
+                        echo '<span class="user-welcome">欢迎，' . htmlspecialchars($_SESSION['user']['nickname']) . '</span>';
+                        echo '<a href="user_center.php" class="btn btn-small btn-login">用户中心</a>';
+                    } else {
+                        echo '<a href="login" class="btn btn-small btn-login">登录</a>';
+                        echo '<a href="register" class="btn btn-small btn-register">注册</a>';
+                    }
+                    ?>
+                </div>
+            </div>
+            
+            <!-- 移动端菜单按钮 -->
             <button class="nav-toggle" id="navToggle">
                 <span></span>
                 <span></span>
@@ -668,7 +713,12 @@ $next_id = $id + 1;
                 ?>
                 <a href="article.php?id=<?php echo $nextId; ?>" class="btn secondary">阅读下一篇文章</a>
             </div>
-            <?php if ($commentSettings['enable_comments']):?>
+            <?php if ($commentSettings['enable_comments']):
+                if (session_status() == PHP_SESSION_NONE) {
+                    session_start();
+                }
+                $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;             
+            ?>
             <div class="comments-section">
                 <h3>评论区</h3>
                 
@@ -679,10 +729,30 @@ $next_id = $id + 1;
                     <div class="comment-message"><?php echo $commentMessage; ?></div>
                 <?php endif; ?>
                 
+                <?php
+                // 检查是否允许评论
+                if ($commentSettings['allow_guest_comments'] || $isLoggedIn) {
+                    // 显示评论表单
+                ?>
+
                 <div class="comment-form">
                     <form method="post" id="commentForm">
                         <input type="hidden" name="parent_id" id="parent_id" value="0">
-
+                        <?php
+                        // 检查用户是否登录
+                        if (session_status() == PHP_SESSION_NONE) {
+                            session_start();
+                        }
+                        $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
+                        
+                        if ($isLoggedIn) {
+                            // 从会话中获取用户信息
+                            $userNickname = htmlspecialchars($_SESSION['user']['nickname']);
+                            $userEmail = htmlspecialchars($_SESSION['user']['email']);
+                            echo '<input type="hidden" name="name" value="' . $userNickname . '">';
+                            echo '<input type="hidden" name="email" value="' . $userEmail . '">';
+                        } else {
+                        ?>
                         <div class="form-group">
                             <label for="name">昵称 *</label>
                             <input type="text" id="name" name="name" required>
@@ -692,6 +762,7 @@ $next_id = $id + 1;
                             <label for="email">邮箱 *</label>
                             <input type="email" id="email" name="email" required>
                         </div>
+                        <?php } ?>
                         
                         <div class="form-group">
                             <label for="content">评论内容 *</label>
@@ -701,7 +772,16 @@ $next_id = $id + 1;
                         <button type="submit" name="submit_comment" class="btn primary">提交评论</button>
                     </form>
                 </div>
-                
+            <?php
+            } else {
+                // 不允许游客评论且用户未登录，显示登录提示
+                echo '<div class="comment-login-prompt">';
+                echo '<p>请先登录后再发表评论</p>';
+                echo '<a href="login" class="btn primary">登录</a>';
+                echo '<a href="register" class="btn secondary" style="margin-left: 10px;">注册</a>';
+                echo '</div>';
+            }
+            ?>              
                 <?php
                 function render_flat_replies($comments) {
                     foreach ($comments as $reply) {
@@ -711,8 +791,8 @@ $next_id = $id + 1;
                         ?>
                         <div class="comment-item reply-comment" id="comment_<?php echo $reply['id']; ?>">
                             <div class="comment-header">
-                                <img src="<?php echo getCommentAvatar($reply['email']); ?>" 
-                                    alt="<?php echo $reply['name']; ?>" class="comment-avatar">
+                                <img src="<?php echo getCommentAvatar($comment['email'], $comment['user_id']); ?>" 
+                                    alt="<?php echo htmlspecialchars($comment['name']); ?>" class="comment-avatar">
                                 <div>
                                     <div class="comment-name"><?php echo $reply['name']; ?></div>
                                     <div class="comment-date"><?php echo $reply['created_at']; ?></div>
@@ -747,8 +827,8 @@ $next_id = $id + 1;
                     ?>
                     <div class="comment-item" id="comment_<?php echo $comment['id']; ?>">
                         <div class="comment-header">
-                            <img src="<?php echo getCommentAvatar($comment['email']); ?>" 
-                                alt="<?php echo $comment['name']; ?>" class="comment-avatar">
+                            <img src="<?php echo getCommentAvatar($comment['email'], $comment['user_id']); ?>" 
+                                alt="<?php echo htmlspecialchars($comment['name']); ?>" class="comment-avatar">
                             <div>
                                 <div class="comment-name"><?php echo $comment['name']; ?></div>
                                 <div class="comment-date"><?php echo $comment['created_at']; ?></div>
