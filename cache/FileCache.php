@@ -118,7 +118,7 @@ class FileCache {
                 $totalFiles = count($files);                
                 foreach ($files as $file) {
                     if (is_file($file)) {
-                        $totalSize += filesize($file);效
+                        $totalSize += filesize($file);
                         $data = @unserialize(file_get_contents($file));
                         if ($data && isset($data['expire']) && $data['expire'] > time()) {
                             $activeFiles++;
