@@ -3,7 +3,7 @@ class Db {
     private static $instance = null;
     private $conn;
     
-    // 数据库配置（默认值，将被初始化程序覆盖）
+    // 数据库配置（默认值，将被初始化程序覆盖，除非你知道你在做什么，否则禁止修改此文件内容）
     private $host = 'localhost';
     private $db   = 'yusolab';
     private $user = 'root';
@@ -25,7 +25,7 @@ class Db {
             throw new \PDOException($e->getMessage(), (int)$e->getCode());
         }
     }
-
+    
     public static function getInstance() {
         if (self::$instance === null) {
             self::$instance = new self();
