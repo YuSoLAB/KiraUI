@@ -139,19 +139,46 @@ function initCodeEditors() {
 
 document.addEventListener('DOMContentLoaded', function() {
     initCodeEditors();
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            tabs.forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault(); // 阻止默认跳转
+
+            const url = this.getAttribute('data-url');
+            if (!url) return;
+
+            // 1. 更新浏览器 URL
+            history.pushState(null, '', url);
+
+            // 2. 停用所有标签页和内容面板
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+            // 3. 激活当前点击的标签页
             this.classList.add('active');
-            const tabId = this.getAttribute('data-tab');
-            document.querySelectorAll('.tab-pane').forEach(pane => {
-                pane.classList.remove('active');
-            });
-            const contentElement = document.getElementById(tabId + '-content');
-            if (contentElement) {
-                contentElement.classList.add('active');
+            
+            // 4. 激活对应的内容面板
+            // 我们使用与 admin.php 底部内联脚本完全相同的逻辑来确保一致性
+            
+            // 从 data-url 中提取 'page' 参数
+            let currentPage = 'siteinfo'; // 默认值
+            try {
+                // 使用 URLSearchParams 来安全地解析 data-url
+                const params = new URLSearchParams(url.substring(url.indexOf('?')));
+                currentPage = params.get('page') || 'siteinfo';
+            } catch (err) {
+                console.error('无法解析 tab URL:', url);
             }
+
+            // 遍历所有内容面板，激活正确的那个
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                // 关键逻辑：将 pane-id (如 'edit-article-content')
+                // 转换为 'edit_article' 来匹配 'page' 参数
+                const paneId = pane.id.replace('-content', '').replace(/-/g, '_');
+                
+                if (paneId === currentPage) {
+                    pane.classList.add('active');
+                }
+            });
         });
     });
 

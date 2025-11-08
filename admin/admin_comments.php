@@ -120,8 +120,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_action'])) {
                 'allowed_domains' => isset($_POST['allowed_domains']) ? explode("\n", $_POST['allowed_domains']) : [],
                 'blocked_domains' => isset($_POST['blocked_domains']) ? explode("\n", $_POST['blocked_domains']) : [],
                 'default_moderation' => $_POST['default_moderation'] ?? 'strict',
-                'enable_comments' => isset($_POST['enable_comments']) ? true : false
-            ];            
+                'enable_comments' => isset($_POST['enable_comments']) ? true : false,
+                'allow_guest_comments' => isset($_POST['allow_guest_comments']) ? true : false
+            ];        
             $newSettings['allowed_domains'] = array_filter(array_map('trim', $newSettings['allowed_domains']));
             $newSettings['blocked_domains'] = array_filter(array_map('trim', $newSettings['blocked_domains']));
             
@@ -214,6 +215,14 @@ $allEmails = array_values($allEmails);
                     </label>
                 </div>
                 
+                <div class="form-group">
+                    <label style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; margin-bottom: 15px;">
+                        <input type="checkbox" name="allow_guest_comments" <?php echo isset($commentSettings['allow_guest_comments']) && $commentSettings['allow_guest_comments'] ? 'checked' : ''; ?>>
+                        允许游客评论
+                    </label>
+                    <small>不勾选时，只有登录用户可以评论</small>
+                </div>
+
                 <div class="form-group">
                     <label for="default_moderation">默认审核模式</label>
                     <select id="default_moderation" name="default_moderation">

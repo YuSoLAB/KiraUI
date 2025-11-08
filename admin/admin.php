@@ -8,9 +8,21 @@ if (!defined('ROOT_DIR')) {
 }
 $dbConfigPath = ROOT_DIR . '/include/Db.php';
 $dbConfigDistPath = $dbConfigPath . '.dist';
-$isInitialized = file_exists($dbConfigPath) && 
-                 file_exists($dbConfigDistPath) && 
-                 file_get_contents($dbConfigPath) !== file_get_contents($dbConfigDistPath);
+$isInitialized = false;
+if (file_exists($dbConfigPath) && file_exists($dbConfigDistPath)) {
+    $fileContentDiff = file_get_contents($dbConfigPath) !== file_get_contents($dbConfigDistPath);
+    $dbInitialized = false;
+    try {
+        require_once $dbConfigPath;
+        $db = Db::getInstance();
+        $stmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+        $stmt->execute();
+        $dbInitialized = $stmt->fetch() !== false;
+    } catch (Exception $e) {
+        $dbInitialized = false;
+    }
+    $isInitialized = $fileContentDiff || $dbInitialized;
+}
 
 $currentPage = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 $initErrors = [];
@@ -69,7 +81,7 @@ if ($isInitialized) {
 
 define('ARTICLES_DIR', ROOT_DIR . '/articles/');
 $cache = new FileCache(ROOT_DIR . '/cache/data');
-$articleIndex = $isInitialized ? new ArticleIndex(ROOT_DIR . '/cache/articles_index.php') : null;
+$articleIndex = $isInitialized ? new ArticleIndex() : null;
 
 $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
 $loginError = '';
@@ -112,18 +124,28 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     header('Location: admin.php');
     exit;
 }
-
-require_once 'admin_functions.php';
-
+$currentPage = $_GET['page'] ?? 'siteinfo'; // 默认显示"信息管理"页面
+// 处理特殊页面（如编辑文章/草稿）的兼容
+if (in_array($currentPage, ['edit_article', 'edit_draft']) && !isset($_GET['edit'])) {
+    $currentPage = 'articles'; // 若编辑参数缺失，默认返回文章管理
+}
 if ($isLoggedIn) {
+    require_once 'admin_functions.php';
     $message = '';
     $page = $_GET['page'] ?? 'cache';
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         require_once 'admin_actions.php';
     }
     $stats = $cache->getStats();
-    $index_stats = $articleIndex->getIndexStats();
-    $articles = $articleIndex->getIndex();
+    $index_stats = [];
+    if ($articleIndex !== null) {
+        $index_stats = $articleIndex->getIndexStats();
+    }
+    $articles = [];
+    if ($articleIndex !== null) {
+        $index_stats = $articleIndex->getIndexStats();
+        $articles = $articleIndex->getIndex();
+    }
     $currentArticle = null;
     $isNewArticle = false;
     if ($currentPage === 'edit_article' && isset($_GET['edit'])) {
@@ -306,6 +328,15 @@ if ($isLoggedIn) {
                 <div id="comments-content" class="tab-pane <?php echo $currentPage === 'comments' ? 'active' : ''; ?>">
                     <?php include 'admin_comments.php'; ?>
                 </div>
+                <div id="smtp-content" class="tab-pane <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>">
+                    <?php include 'admin_smtp.php'; ?>
+                </div>
+                <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
+                    <?php include 'admin_users.php'; ?>
+                </div>
+                <div id="update-content" class="tab-pane <?php echo $currentPage === 'update' ? 'active' : ''; ?>">
+                    <?php include 'admin_update.php'; ?>
+                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -332,8 +363,38 @@ if ($isLoggedIn) {
                 }
             });
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从URL获取当前page参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = urlParams.get('page') || 'siteinfo';
+
+            // 激活对应的导航标签（.tab）
+            document.querySelectorAll('.tab').forEach(tab => {
+                const tabUrl = tab.getAttribute('data-url');
+                if (tabUrl && tabUrl.includes(`page=${currentPage}`)) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // 激活对应的内容区域（.tab-pane）
+           document.querySelectorAll('.tab-pane').forEach(pane => {
+                // 关键逻辑：将 pane-id (如 'edit-article-content')
+                // 转换为 'edit_article' 来匹配 'page' 参数
+                // 这与 admin_script.js 中的逻辑保持一致
+                const paneId = pane.id.replace('-content', '').replace(/-/g, '_');
+                
+                // 精准匹配当前页面
+                if (paneId === currentPage) {
+                    pane.classList.add('active');
+                } else {
+                    pane.classList.remove('active');
+                }
+            });
+        });
     </script>
     <script src="admin_script.js"></script>
 </body>
-
 </html>

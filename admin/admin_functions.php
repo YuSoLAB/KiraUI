@@ -234,4 +234,99 @@ function deleteDraft($id) {
         return false;
     }
 }
+
+function getRegistrationEmailSettings() {
+    $db = Db::getInstance();
+    try {
+        $stmt = $db->prepare("SELECT * FROM registration_email_settings WHERE id = 1");
+        $stmt->execute();
+        $settings = $stmt->fetch();
+        
+        if (!$settings) {
+            return [
+                'email_mode' => 'all',
+                'allowed_domains' => [],
+                'blocked_domains' => []
+            ];
+        }
+        
+        return [
+            'email_mode' => $settings['email_mode'],
+            'allowed_domains' => $settings['allowed_domains'] ? explode("\n", $settings['allowed_domains']) : [],
+            'blocked_domains' => $settings['blocked_domains'] ? explode("\n", $settings['blocked_domains']) : []
+        ];
+    } catch (PDOException $e) {
+        error_log("获取注册邮箱设置失败: " . $e->getMessage());
+        return ['email_mode' => 'all', 'allowed_domains' => [], 'blocked_domains' => []];
+    }
+}
+
+/**
+ * 保存注册邮箱设置
+ */
+function saveRegistrationEmailSettings($settings) {
+    $db = Db::getInstance();
+    $allowedDomains = implode("\n", $settings['allowed_domains'] ?? []);
+    $blockedDomains = implode("\n", $settings['blocked_domains'] ?? []);
+    
+    try {
+        $sql = "
+            UPDATE registration_email_settings
+            SET email_mode = ?, allowed_domains = ?, blocked_domains = ?
+            WHERE id = 1
+        ";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            $settings['email_mode'] ?? 'all',
+            $allowedDomains,
+            $blockedDomains
+        ]);
+        return true;
+    } catch (PDOException $e) {
+        error_log("保存注册邮箱设置失败: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * 检查用户状态是否有效（处理过期状态自动恢复）
+ */
+function checkUserStatus($userId) {
+    $db = Db::getInstance();
+    $stmt = $db->prepare("SELECT status, status_expires_at FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    
+    if (!$user) return false;
+    
+    // 检查状态是否已过期
+    if ($user['status'] !== 'normal' && $user['status_expires_at'] && strtotime($user['status_expires_at']) < time()) {
+        $stmt = $db->prepare("UPDATE users SET status = 'normal', status_expires_at = NULL WHERE id = ?");
+        $stmt->execute([$userId]);
+        return 'normal';
+    }
+    
+    return $user['status'];
+}
+
+/**
+ * 验证注册邮箱是否允许
+ */
+function isRegistrationEmailAllowed($email) {
+    $settings = getRegistrationEmailSettings();
+    $domain = substr(strrchr($email, "@"), 1);
+    
+    // 黑名单模式检查
+    if ($settings['email_mode'] == 'blacklist' && in_array($domain, $settings['blocked_domains'])) {
+        return false;
+    }
+    
+    // 白名单模式检查
+    if ($settings['email_mode'] == 'whitelist' && !in_array($domain, $settings['allowed_domains'])) {
+        return false;
+    }
+    
+    return true;
+}
 ?>

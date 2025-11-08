@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__DIR__) . '/include/Db.php';
+require_once __DIR__ . '/admin_functions.php';
 
 if (!defined('COMMENT_SETTINGS_FILE')) {
     if (!defined('ROOT_DIR')) {
@@ -33,9 +34,9 @@ function initCommentSettings() {
         'allowed_domains' => [],
         'blocked_domains' => [],
         'default_moderation' => 'strict',
-        'enable_comments' => true
+        'enable_comments' => true,
+        'allow_guest_comments' => true, // 添加默认值
     ];
-    
     $db = Db::getInstance();
     try {
         $stmt = $db->query("SELECT * FROM comment_settings LIMIT 1");
@@ -48,7 +49,8 @@ function initCommentSettings() {
                 'allowed_domains' => $allowedDomains,
                 'blocked_domains' => $blockedDomains,
                 'default_moderation' => $saved['default_moderation'],
-                'enable_comments' => (bool)$saved['enable_comments']
+                'enable_comments' => (bool)$saved['enable_comments'],
+                'allow_guest_comments' => isset($saved['allow_guest_comments']) ? (bool)$saved['allow_guest_comments'] : true, // 从数据库读取并添加默认值
             ];
         }
     } catch (PDOException $e) {
@@ -96,7 +98,7 @@ function getCommentReplies($commentId) {
     $replies = $stmt->fetchAll();    
     foreach ($replies as &$reply) {
         $reply['replies'] = getCommentReplies($reply['id']);
-    
+    }
     return $replies;
 }
 
@@ -118,28 +120,33 @@ function saveCommentSettings($settings) {
 
         $sql = "
             INSERT INTO comment_settings
-            (id, email_mode, allowed_domains, blocked_domains, default_moderation, enable_comments)
-            VALUES (?, ?, ?, ?, ?, ?)  -- 我们固定 settings 的 id 为 1
+            (id, email_mode, allowed_domains, blocked_domains, default_moderation, enable_comments, allow_guest_comments)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 email_mode = ?,
                 allowed_domains = ?,
                 blocked_domains = ?,
                 default_moderation = ?,
-                enable_comments = ?
+                enable_comments = ?,
+                allow_guest_comments = ?
         ";
         
         $stmt = $db->prepare($sql);
         $values = [
+            1,
             $settings['email_mode'] ?? 'all',
             $allowedDomains,
             $blockedDomains,
             $settings['default_moderation'] ?? 'strict',
             $settings['enable_comments'] ? 1 : 0,
+            $settings['allow_guest_comments'] ? 1 : 0, // 新增参数
+            // 以下是UPDATE部分的参数，同样添加allow_guest_comments
             $settings['email_mode'] ?? 'all',
             $allowedDomains,
             $blockedDomains,
             $settings['default_moderation'] ?? 'strict',
-            $settings['enable_comments'] ? 1 : 0
+            $settings['enable_comments'] ? 1 : 0,
+            $settings['allow_guest_comments'] ? 1 : 0 // 新增参数
         ];
 
         $stmt->execute($values);
@@ -162,16 +169,70 @@ function isEmailAllowed($email, $settings) {
     return true;
 }
 
-function getCommentAvatar($email) {
+function getCommentAvatar($email, $userId = null) {
+    // 检查是否有用户ID且存在上传的头像
+    if ($userId) {
+        try {
+            $db = Db::getInstance();
+            $stmt = $db->prepare("SELECT avatar FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $avatar = $stmt->fetchColumn();
+            
+            if (!empty($avatar) && file_exists(ROOT_DIR . '/uploads/avatars/' . $avatar)) {
+                return 'uploads/avatars/' . $avatar;
+            }
+        } catch (PDOException $e) {
+            // 数据库查询失败时继续使用其他头像方式
+        }
+    }
+    
+    // QQ头像处理
     if (preg_match('/^(\d+)@(qq\.com|vip\.qq\.com)$/', $email, $matches)) {
         return 'https://q1.qlogo.cn/g?b=qq&nk=' . $matches[1] . '&s=640';
     }
+    
+    // 默认头像
     return 'https://via.placeholder.com/64?text=Guest';
 }
 
 function addNewComment($articleId, $data) {
     $settings = initCommentSettings();
-    $email = $data['email'] ?? '';
+    
+    // 检查用户是否登录，如果是则使用会话中的邮箱
+    if (session_status() == PHP_SESSION_NONE) {
+        session_start();
+    }
+    $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
+    
+    if ($isLoggedIn) {
+        $email = $_SESSION['user']['email'];
+        $name = $_SESSION['user']['nickname'];
+        
+        // 检查用户状态
+        $status = checkUserStatus($_SESSION['user']['id']);
+        if ($status == 'banned') {
+            return ['success' => false, 'message' => '您的账号已被封禁，无法发表评论'];
+        }
+    } else {
+        $email = $data['email'] ?? '';
+        $name = $data['name'] ?? '';
+        
+        // 非登录用户需要验证邮箱和昵称
+        if (empty($email) || empty($name)) {
+            return ['success' => false, 'message' => '请填写昵称和邮箱'];
+        }
+    }
+    
+    if (!$isLoggedIn) {
+        if (!$settings['allow_guest_comments']) {
+            return ['success' => false, 'message' => '请先登录再发表评论'];
+        }
+
+        if (!isEmailAllowed($email, $settings)) {
+            return ['success' => false, 'message' => '该邮箱不允许发送评论'];
+        }
+    }
+
     if (empty($settings['enable_comments'])) {
         return ['success' => false, 'message' => '评论功能已关闭'];
     }
@@ -182,7 +243,7 @@ function addNewComment($articleId, $data) {
 
     $db = Db::getInstance();
     $emailHash = md5(strtolower(trim($email)));
-    $name = htmlspecialchars($data['name'] ?? '');
+    $name = htmlspecialchars($name);  // 使用登录用户的昵称或表单提交的昵称
     $content = nl2br(htmlspecialchars($data['content'] ?? ''));
     $parentId = empty($data['parent_id']) || $data['parent_id'] == '0' ? null : $data['parent_id'];
     $needsModeration = true; 

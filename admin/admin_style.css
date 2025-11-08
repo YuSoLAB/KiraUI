@@ -707,3 +707,19 @@ body.dark-mode .comments-management .comment-item .comment-avatar,
 body.dark-mode .email-management .comment-item .comment-avatar {
     border: 1px solid rgba(176, 160, 255, 0.3) !important;
 }
+
+/* 确保说明文字底部无多余边距 */
+.section-description {
+    margin: 0 0 10px 0 !important; /* 仅保留底部10px间距，可根据需要调整 */
+    padding: 0;
+}
+
+/* 优化消息提示容器样式，无消息时不占用空间 */
+.message {
+    margin: 0 0 15px 0; /* 调整消息容器与下方元素的间距 */
+}
+
+/* 当没有消息时，彻底隐藏容器（避免空白） */
+.message:empty {
+    display: none;
+}

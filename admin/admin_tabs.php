@@ -1,5 +1,4 @@
 <?php
-$currentPage = $_GET['page'] ?? 'cache';
 ?>
 <div class="tabs">
     <div class="tab <?php echo $currentPage === 'siteinfo' ? 'active' : ''; ?>" 
@@ -36,4 +35,10 @@ $currentPage = $_GET['page'] ?? 'cache';
         data-tab="announcement" data-url="?page=announcement">弹窗公告管理</div>
     <div class="tab <?php echo $currentPage === 'comments' ? 'active' : ''; ?>" 
         data-tab="comments" data-url="?page=comments">评论管理</div>
+    <div class="tab <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>" 
+        data-tab="smtp" data-url="?page=smtp">SMTP管理</div>
+    <div class="tab <?php echo $currentPage === 'users' ? 'active' : ''; ?>" 
+        data-tab="users" data-url="?page=users">用户管理</div>
+    <div class="tab <?php echo $currentPage === 'update' ? 'active' : ''; ?>" 
+        data-tab="update" data-url="?page=update">系统更新</div>
 </div>

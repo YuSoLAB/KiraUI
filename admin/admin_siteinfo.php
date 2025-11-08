@@ -80,7 +80,7 @@ $hasLogo = file_exists($imgDir . 'logo.ico');
 <div class="tab-content" id="siteinfo">
     <div class="section">
         <h2>网站信息配置</h2>
-        <p>配置网站基本信息、Logo和背景图片</p>        
+        <p class="section-description">配置网站基本信息、Logo和背景图片</p>        
         <?php if (isset($message)): ?>
             <div class="message success"><?php echo $message; ?></div>
         <?php endif; ?>
