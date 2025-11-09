@@ -14,17 +14,14 @@ document.querySelectorAll('.tab').forEach(tab => {
         }
     });
 });
-
 (function(){
     const box = document.createElement('div');
     box.className = 'sparkles';
     box.id = 'sparkles';
     box.setAttribute('aria-hidden', 'true');
     document.body.appendChild(box);
-    
     const count = 40;
     const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-    
     for (let i = 0; i < count; i++) {
         const s = document.createElement('i');
         const size = 6 + Math.random() * 10;
@@ -36,7 +33,6 @@ document.querySelectorAll('.tab').forEach(tab => {
         s.style.opacity = 0.4 + Math.random() * 0.6;
         box.appendChild(s);
     }
-    
     if (vw < 480) {
         const kids = box.querySelectorAll('i');
         for (let j = 0; j < kids.length; j += 2) {
@@ -44,7 +40,6 @@ document.querySelectorAll('.tab').forEach(tab => {
         }
     }
 })();
-
 function initCodeEditors() {
     if (document.getElementById('content_editor')) {
         const contentTextarea = document.getElementById('content');
@@ -62,14 +57,12 @@ function initCodeEditors() {
                 }
             }
         });
-        
         window.contentEditor.on('change', function() {
             contentTextarea.value = window.contentEditor.getValue();
             const inputEvent = new Event('input', { bubbles: true });
             contentTextarea.dispatchEvent(inputEvent);
         });
     }
-    
     if (document.getElementById('footer_content_editor')) {
         const textarea = document.getElementById('footer_content');
         const editor = CodeMirror(document.getElementById('footer_content_editor'), {
@@ -81,12 +74,10 @@ function initCodeEditors() {
             lineWrapping: true,
             height: '300px'
         });
-        
         editor.on('change', function() {
             textarea.value = editor.getValue();
         });
     }
-    
     if (document.getElementById('footer_css_editor')) {
         const textarea = document.getElementById('footer_css');
         const editor = CodeMirror(document.getElementById('footer_css_editor'), {
@@ -97,12 +88,10 @@ function initCodeEditors() {
             lineWrapping: true,
             height: '200px'
         });
-        
         editor.on('change', function() {
             textarea.value = editor.getValue();
         });
     }
-    
     if (document.getElementById('footer_js_editor')) {
         const textarea = document.getElementById('footer_js');
         const editor = CodeMirror(document.getElementById('footer_js_editor'), {
@@ -113,12 +102,10 @@ function initCodeEditors() {
             lineWrapping: true,
             height: '200px'
         });
-        
         editor.on('change', function() {
             textarea.value = editor.getValue();
         });
     }
-    
     if (document.getElementById('announcement_content_editor')) {
         const textarea = document.getElementById('announcement_content');
         const editor = CodeMirror(document.getElementById('announcement_content_editor'), {
@@ -130,58 +117,37 @@ function initCodeEditors() {
             lineWrapping: true,
             height: '300px'
         });
-        
         editor.on('change', function() {
             textarea.value = editor.getValue();
         });
     }
 }
-
 document.addEventListener('DOMContentLoaded', function() {
     initCodeEditors();
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', function(e) {
-            e.preventDefault(); // 阻止默认跳转
-
+            e.preventDefault();
             const url = this.getAttribute('data-url');
             if (!url) return;
-
-            // 1. 更新浏览器 URL
             history.pushState(null, '', url);
-
-            // 2. 停用所有标签页和内容面板
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-
-            // 3. 激活当前点击的标签页
             this.classList.add('active');
-            
-            // 4. 激活对应的内容面板
-            // 我们使用与 admin.php 底部内联脚本完全相同的逻辑来确保一致性
-            
-            // 从 data-url 中提取 'page' 参数
-            let currentPage = 'siteinfo'; // 默认值
+            let currentPage = 'siteinfo';
             try {
-                // 使用 URLSearchParams 来安全地解析 data-url
                 const params = new URLSearchParams(url.substring(url.indexOf('?')));
                 currentPage = params.get('page') || 'siteinfo';
             } catch (err) {
                 console.error('无法解析 tab URL:', url);
             }
-
-            // 遍历所有内容面板，激活正确的那个
             document.querySelectorAll('.tab-pane').forEach(pane => {
-                // 关键逻辑：将 pane-id (如 'edit-article-content')
-                // 转换为 'edit_article' 来匹配 'page' 参数
-                const paneId = pane.id.replace('-content', '').replace(/-/g, '_');
-                
+                const paneId = pane.id.replace('-content', '').replace(/-/g, '_');              
                 if (paneId === currentPage) {
                     pane.classList.add('active');
                 }
             });
         });
     });
-
     function updateWordCount() {
         const contentTextarea = document.getElementById('content');
         if (!contentTextarea) return;
@@ -200,7 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
             readTimeSpan.textContent = `阅读时长: ${readTime} 分钟`;
         }
     }
-
     const contentTextarea = document.getElementById('content');
     if (contentTextarea) {
         updateWordCount();
@@ -217,20 +182,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-    
     function insertShortcode(type) {
         const contentTextarea = document.getElementById('content');
         let editor = window.contentEditor;
-        
         if (!contentTextarea && !editor) {
             console.error('未找到内容编辑器');
             return;
         }
-        
         let shortcode = '';
         let cursorPos = 0;
         let selectionEnd = 0;
-        
         switch(type) {
             case 'image':
                 shortcode = '[image url="图片URL" alt="图片描述"]';
@@ -254,7 +215,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn('未知的短代码类型:', type);
                 return;
         }
-        
         if (editor) {
             const doc = editor.getDoc();
             const cursor = doc.getCursor();
@@ -264,9 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 doc.replaceRange(shortcode, cursor);
             }
-            
             editor.trigger('change');
-            
         } else if (contentTextarea) {
             cursorPos = contentTextarea.selectionStart;
             selectionEnd = contentTextarea.selectionEnd;            
@@ -279,7 +237,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const inputEvent = new Event('input', { bubbles: true });
             contentTextarea.dispatchEvent(inputEvent);
         }
-        
         console.log('短代码插入完成:', type);
     }
 });

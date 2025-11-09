@@ -8,7 +8,6 @@
             <p>有效缓存文件: <?php echo $stats['active_files'] ?? 0; ?></p>
             <p>缓存总大小: <?php echo $stats['total_size'] ?? '0 KB'; ?></p>
         </div>
-        
         <div class="action-bar">
             <h3>缓存操作</h3>
             <div>
@@ -22,7 +21,6 @@
                         清空所有缓存
                     </button>
                 </form>
-                
                 <form method="post" style="display: inline;">
                     <input type="hidden" name="action" value="clear_expired">
                     <button type="submit" class="btn btn-warning">
@@ -36,7 +34,6 @@
             </div>
         </div>
     </div>
-    
     <div class="section">
         <h2>索引管理</h2>
         <div class="stats-card">
@@ -67,7 +64,6 @@
                     </span>
                 </div>
             </div>
-            
             <?php if (!empty($index_stats['tags'])): ?>
             <div class="tags-stats">
                 <h4>热门标签</h4>
@@ -84,7 +80,6 @@
             </div>
             <?php endif; ?>
         </div>
-        
         <div class="action-bar">
             <div></div>
             <div>
@@ -98,7 +93,6 @@
                         重建文章索引
                     </button>
                 </form>
-                
                 <form method="post" style="display: inline;">
                     <input type="hidden" name="action" value="clear_index">
                     <button type="submit" class="btn btn-danger" onclick="return confirm('确定要清空文章索引吗？')">

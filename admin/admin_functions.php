@@ -6,18 +6,15 @@ if (!defined('ROOT_DIR')) {
 if (!defined('ARTICLES_DIR')) {
     define('ARTICLES_DIR', ROOT_DIR . '/articles/');
 }
-
 if (!defined('DRAFTS_DIR')) {
     define('DRAFTS_DIR', dirname(ARTICLES_DIR) . '/drafts/');
 }
-
 function loadArticleForEdit($id) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM articles WHERE id = ?");
     $stmt->execute([$id]);
     return $stmt->fetch() ?: [];
 }
-
 function getNextArticleId() {
     $db = Db::getInstance();
     $stmt = $db->query("SELECT MAX(id) as max_id FROM articles");
@@ -25,7 +22,6 @@ function getNextArticleId() {
     $maxId = intval($result['max_id'] ?? 0);
     return $maxId + 1;
 }
-
 function saveArticle($data) {
     $db = Db::getInstance();  
     if (!isset($data['title']) || !isset($data['content'])) {
@@ -105,7 +101,6 @@ function saveArticle($data) {
         return ['success' => false, 'error' => $e->getMessage()];
     }
 }
-
 function deleteArticle($id) {
     $db = Db::getInstance();
     try {
@@ -124,7 +119,6 @@ function deleteArticle($id) {
         return false;
     }
 }
-
 function publishFromDraft($id) {
     $draft = loadDraftForEdit($id);
     if (empty($draft)) {
@@ -147,7 +141,6 @@ function publishFromDraft($id) {
     $deleteResult = deleteDraft($id);
     return $deleteResult;
 }
-
 function getDrafts() {
     $db = Db::getInstance();
     $stmt = $db->query("SELECT * FROM drafts ORDER BY date DESC");
@@ -157,21 +150,17 @@ function getDrafts() {
     }    
     return $drafts;
 }
-
 function loadDraftForEdit($id) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM drafts WHERE id = ?");
     $stmt->execute([$id]);
     $draft = $stmt->fetch();
-    
     if ($draft) {
         $draft['tags'] = !empty($draft['tags']) ? explode(',', $draft['tags']) : [];
         return $draft;
     }
-    
     return [];
 }
-
 function saveDraft($data) {
     $db = Db::getInstance();    
     if (!isset($data['title']) || !isset($data['content'])) {
@@ -223,7 +212,6 @@ function saveDraft($data) {
         return ['success' => false, 'error' => $e->getMessage()];
     }
 }
-
 function deleteDraft($id) {
     $db = Db::getInstance();
     try {
@@ -234,14 +222,12 @@ function deleteDraft($id) {
         return false;
     }
 }
-
 function getRegistrationEmailSettings() {
     $db = Db::getInstance();
     try {
         $stmt = $db->prepare("SELECT * FROM registration_email_settings WHERE id = 1");
         $stmt->execute();
         $settings = $stmt->fetch();
-        
         if (!$settings) {
             return [
                 'email_mode' => 'all',
@@ -249,7 +235,6 @@ function getRegistrationEmailSettings() {
                 'blocked_domains' => []
             ];
         }
-        
         return [
             'email_mode' => $settings['email_mode'],
             'allowed_domains' => $settings['allowed_domains'] ? explode("\n", $settings['allowed_domains']) : [],
@@ -260,22 +245,16 @@ function getRegistrationEmailSettings() {
         return ['email_mode' => 'all', 'allowed_domains' => [], 'blocked_domains' => []];
     }
 }
-
-/**
- * 保存注册邮箱设置
- */
 function saveRegistrationEmailSettings($settings) {
     $db = Db::getInstance();
     $allowedDomains = implode("\n", $settings['allowed_domains'] ?? []);
     $blockedDomains = implode("\n", $settings['blocked_domains'] ?? []);
-    
     try {
         $sql = "
             UPDATE registration_email_settings
             SET email_mode = ?, allowed_domains = ?, blocked_domains = ?
             WHERE id = 1
         ";
-        
         $stmt = $db->prepare($sql);
         $stmt->execute([
             $settings['email_mode'] ?? 'all',
@@ -288,45 +267,28 @@ function saveRegistrationEmailSettings($settings) {
         return false;
     }
 }
-
-/**
- * 检查用户状态是否有效（处理过期状态自动恢复）
- */
 function checkUserStatus($userId) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT status, status_expires_at FROM users WHERE id = ?");
     $stmt->execute([$userId]);
-    $user = $stmt->fetch();
-    
+    $user = $stmt->fetch();    
     if (!$user) return false;
-    
-    // 检查状态是否已过期
     if ($user['status'] !== 'normal' && $user['status_expires_at'] && strtotime($user['status_expires_at']) < time()) {
         $stmt = $db->prepare("UPDATE users SET status = 'normal', status_expires_at = NULL WHERE id = ?");
         $stmt->execute([$userId]);
         return 'normal';
     }
-    
     return $user['status'];
 }
-
-/**
- * 验证注册邮箱是否允许
- */
 function isRegistrationEmailAllowed($email) {
     $settings = getRegistrationEmailSettings();
     $domain = substr(strrchr($email, "@"), 1);
-    
-    // 黑名单模式检查
     if ($settings['email_mode'] == 'blacklist' && in_array($domain, $settings['blocked_domains'])) {
         return false;
     }
-    
-    // 白名单模式检查
     if ($settings['email_mode'] == 'whitelist' && !in_array($domain, $settings['allowed_domains'])) {
         return false;
     }
-    
     return true;
 }
 ?>

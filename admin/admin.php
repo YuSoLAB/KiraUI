@@ -2,7 +2,6 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
 if (!defined('ROOT_DIR')) {
     define('ROOT_DIR', dirname(dirname(__FILE__)));
 }
@@ -23,11 +22,9 @@ if (file_exists($dbConfigPath) && file_exists($dbConfigDistPath)) {
     }
     $isInitialized = $fileContentDiff || $dbInitialized;
 }
-
 $currentPage = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 $initErrors = [];
 $initSuccess = false;
-
 if (!$isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['init_submit'])) {
     if (empty($_POST['admin_email'])) $initErrors[] = '管理员邮箱不能为空';
     if (empty($_POST['admin_password'])) $initErrors[] = '管理员密码不能为空';
@@ -35,7 +32,6 @@ if (!$isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['in
     if (empty($_POST['db_host'])) $initErrors[] = '数据库主机不能为空';
     if (empty($_POST['db_user'])) $initErrors[] = '数据库用户名不能为空';
     if (empty($_POST['db_name'])) $initErrors[] = '数据库名不能为空';
-    
     if (empty($initErrors)) {
         try {
             $dbDsn = "mysql:host={$_POST['db_host']};charset={$_POST['db_charset']}";
@@ -45,7 +41,6 @@ if (!$isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['in
                 $_POST['db_pass'],
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
-            
             $db->exec("CREATE DATABASE IF NOT EXISTS `{$_POST['db_name']}` CHARACTER SET {$_POST['db_charset']} COLLATE utf8mb4_0900_ai_ci");
             $db->exec("USE `{$_POST['db_name']}`");
             $sqlContent = file_get_contents(ROOT_DIR . '/yusolab.sql');
@@ -72,17 +67,14 @@ if (!$isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['in
         }
     }
 }
-
 require_once ROOT_DIR . '/cache/FileCache.php';
 if ($isInitialized) {
     require_once ROOT_DIR . '/cache/ArticleIndex.php';
     require_once ROOT_DIR . '/include/Db.php';
 }
-
 define('ARTICLES_DIR', ROOT_DIR . '/articles/');
 $cache = new FileCache(ROOT_DIR . '/cache/data');
 $articleIndex = $isInitialized ? new ArticleIndex() : null;
-
 $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
 $loginError = '';
 if ($isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login_submit'])) {
@@ -110,7 +102,6 @@ if ($isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['log
         }
     }
 }
-
 if (!defined('COMMENTS_DIR')) {
     define('COMMENTS_DIR', ROOT_DIR . '/cache/comments/');
 }
@@ -118,16 +109,14 @@ if (!file_exists(COMMENTS_DIR)) {
     mkdir(COMMENTS_DIR, 0755, true);
 }
 define('COMMENT_SETTINGS_FILE', ROOT_DIR . '/cache/comment_settings.php');
-
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     session_destroy();
     header('Location: admin.php');
     exit;
 }
-$currentPage = $_GET['page'] ?? 'siteinfo'; // 默认显示"信息管理"页面
-// 处理特殊页面（如编辑文章/草稿）的兼容
+$currentPage = $_GET['page'] ?? 'siteinfo';
 if (in_array($currentPage, ['edit_article', 'edit_draft']) && !isset($_GET['edit'])) {
-    $currentPage = 'articles'; // 若编辑参数缺失，默认返回文章管理
+    $currentPage = 'articles';
 }
 if ($isLoggedIn) {
     require_once 'admin_functions.php';
@@ -219,7 +208,6 @@ if ($isLoggedIn) {
         <?php if (!$isInitialized): ?>
             <div class="init-form">
                 <h2>系统初始化</h2>
-                
                 <?php if ($initSuccess): ?>
                     <div class="message success">
                         <p>初始化成功！正在加载管理后台...</p>
@@ -233,7 +221,6 @@ if ($isLoggedIn) {
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
-                    
                     <form method="post">
                         <input type="hidden" name="init_submit" value="1">
                         <fieldset>
@@ -252,7 +239,6 @@ if ($isLoggedIn) {
                                 <input type="password" id="admin_password_confirm" name="admin_password_confirm" required>
                             </div>
                         </fieldset>
-                        
                         <fieldset>
                             <legend>数据库配置</legend>
                             <div class="form-group">
@@ -283,7 +269,6 @@ if ($isLoggedIn) {
                                 <small>默认使用 utf8mb4，排序规则强制为 utf8mb4_0900_ai_ci</small>
                             </div>
                         </fieldset>
-                        
                         <button type="submit" class="btn btn-primary">完成初始化</button>
                     </form>
                 <?php endif; ?>
@@ -363,13 +348,9 @@ if ($isLoggedIn) {
                 }
             });
         });
-
         document.addEventListener('DOMContentLoaded', function() {
-            // 从URL获取当前page参数
             const urlParams = new URLSearchParams(window.location.search);
             const currentPage = urlParams.get('page') || 'siteinfo';
-
-            // 激活对应的导航标签（.tab）
             document.querySelectorAll('.tab').forEach(tab => {
                 const tabUrl = tab.getAttribute('data-url');
                 if (tabUrl && tabUrl.includes(`page=${currentPage}`)) {
@@ -378,15 +359,8 @@ if ($isLoggedIn) {
                     tab.classList.remove('active');
                 }
             });
-
-            // 激活对应的内容区域（.tab-pane）
            document.querySelectorAll('.tab-pane').forEach(pane => {
-                // 关键逻辑：将 pane-id (如 'edit-article-content')
-                // 转换为 'edit_article' 来匹配 'page' 参数
-                // 这与 admin_script.js 中的逻辑保持一致
                 const paneId = pane.id.replace('-content', '').replace(/-/g, '_');
-                
-                // 精准匹配当前页面
                 if (paneId === currentPage) {
                     pane.classList.add('active');
                 } else {

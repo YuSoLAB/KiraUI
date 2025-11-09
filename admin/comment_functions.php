@@ -1,7 +1,6 @@
 <?php
 require_once dirname(__DIR__) . '/include/Db.php';
 require_once __DIR__ . '/admin_functions.php';
-
 if (!defined('COMMENT_SETTINGS_FILE')) {
     if (!defined('ROOT_DIR')) {
         define('ROOT_DIR', dirname(__DIR__));
@@ -12,7 +11,6 @@ if (!defined('COMMENT_SETTINGS_FILE')) {
         mkdir(COMMENTS_DIR, 0755, true);
     }
 }
-
 function initCommentSettings() {
     $db = Db::getInstance();
     try {
@@ -28,14 +26,13 @@ function initCommentSettings() {
     } catch (PDOException $e) {
         error_log("创建评论设置表错误: " . $e->getMessage());
     }
-    
     $defaultSettings = [
         'email_mode' => 'all',
         'allowed_domains' => [],
         'blocked_domains' => [],
         'default_moderation' => 'strict',
         'enable_comments' => true,
-        'allow_guest_comments' => true, // 添加默认值
+        'allow_guest_comments' => true,
     ];
     $db = Db::getInstance();
     try {
@@ -59,11 +56,9 @@ function initCommentSettings() {
     saveCommentSettings($defaultSettings);
     return $defaultSettings;
 }
-
 function getArticleCommentsFile($articleId) {
     return COMMENTS_DIR . 'article_' . intval($articleId) . '.json';
 }
-
 function initArticleComments($articleId) {
     $file = getArticleCommentsFile($articleId);
     if (!file_exists($file)) {
@@ -74,7 +69,6 @@ function initArticleComments($articleId) {
         file_put_contents($file, json_encode($comments, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
 }
-
 function getArticleComments($articleId) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM comments 
@@ -85,10 +79,8 @@ function getArticleComments($articleId) {
     foreach ($comments as &$comment) {
         $comment['replies'] = getCommentReplies($comment['id']);
     }
-    
     return ['comments' => $comments];
 }
-
 function getCommentReplies($commentId) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM comments 
@@ -101,12 +93,10 @@ function getCommentReplies($commentId) {
     }
     return $replies;
 }
-
 function saveCommentSettings($settings) {
     $db = Db::getInstance();
     $allowedDomains = implode("\n", $settings['allowed_domains'] ?? []);
     $blockedDomains = implode("\n", $settings['blocked_domains'] ?? []);
-    
     try {
         $db->exec("CREATE TABLE IF NOT EXISTS comment_settings (
             id INT PRIMARY KEY AUTO_INCREMENT,
@@ -117,7 +107,6 @@ function saveCommentSettings($settings) {
             enable_comments TINYINT(1) NOT NULL DEFAULT 1,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
-
         $sql = "
             INSERT INTO comment_settings
             (id, email_mode, allowed_domains, blocked_domains, default_moderation, enable_comments, allow_guest_comments)
@@ -130,7 +119,6 @@ function saveCommentSettings($settings) {
                 enable_comments = ?,
                 allow_guest_comments = ?
         ";
-        
         $stmt = $db->prepare($sql);
         $values = [
             1,
@@ -139,25 +127,21 @@ function saveCommentSettings($settings) {
             $blockedDomains,
             $settings['default_moderation'] ?? 'strict',
             $settings['enable_comments'] ? 1 : 0,
-            $settings['allow_guest_comments'] ? 1 : 0, // 新增参数
-            // 以下是UPDATE部分的参数，同样添加allow_guest_comments
+            $settings['allow_guest_comments'] ? 1 : 0,
             $settings['email_mode'] ?? 'all',
             $allowedDomains,
             $blockedDomains,
             $settings['default_moderation'] ?? 'strict',
             $settings['enable_comments'] ? 1 : 0,
-            $settings['allow_guest_comments'] ? 1 : 0 // 新增参数
+            $settings['allow_guest_comments'] ? 1 : 0
         ];
-
         $stmt->execute($values);
         return true;
-        
     } catch (PDOException $e) {
         error_log("保存评论设置失败: " . $e->getMessage());
         return false;
     }
 }
-
 function isEmailAllowed($email, $settings) {
     $domain = substr(strrchr($email, "@"), 1);
     if (in_array($domain, $settings['blocked_domains'])) {
@@ -168,47 +152,33 @@ function isEmailAllowed($email, $settings) {
     }   
     return true;
 }
-
 function getCommentAvatar($email, $userId = null) {
-    // 检查是否有用户ID且存在上传的头像
     if ($userId) {
         try {
             $db = Db::getInstance();
             $stmt = $db->prepare("SELECT avatar FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             $avatar = $stmt->fetchColumn();
-            
             if (!empty($avatar) && file_exists(ROOT_DIR . '/uploads/avatars/' . $avatar)) {
                 return 'uploads/avatars/' . $avatar;
             }
         } catch (PDOException $e) {
-            // 数据库查询失败时继续使用其他头像方式
         }
     }
-    
-    // QQ头像处理
     if (preg_match('/^(\d+)@(qq\.com|vip\.qq\.com)$/', $email, $matches)) {
         return 'https://q1.qlogo.cn/g?b=qq&nk=' . $matches[1] . '&s=640';
     }
-    
-    // 默认头像
     return 'https://via.placeholder.com/64?text=Guest';
 }
-
 function addNewComment($articleId, $data) {
     $settings = initCommentSettings();
-    
-    // 检查用户是否登录，如果是则使用会话中的邮箱
     if (session_status() == PHP_SESSION_NONE) {
         session_start();
     }
     $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
-    
     if ($isLoggedIn) {
         $email = $_SESSION['user']['email'];
         $name = $_SESSION['user']['nickname'];
-        
-        // 检查用户状态
         $status = checkUserStatus($_SESSION['user']['id']);
         if ($status == 'banned') {
             return ['success' => false, 'message' => '您的账号已被封禁，无法发表评论'];
@@ -216,41 +186,33 @@ function addNewComment($articleId, $data) {
     } else {
         $email = $data['email'] ?? '';
         $name = $data['name'] ?? '';
-        
-        // 非登录用户需要验证邮箱和昵称
         if (empty($email) || empty($name)) {
             return ['success' => false, 'message' => '请填写昵称和邮箱'];
         }
     }
-    
     if (!$isLoggedIn) {
         if (!$settings['allow_guest_comments']) {
             return ['success' => false, 'message' => '请先登录再发表评论'];
         }
-
         if (!isEmailAllowed($email, $settings)) {
             return ['success' => false, 'message' => '该邮箱不允许发送评论'];
         }
     }
-
     if (empty($settings['enable_comments'])) {
         return ['success' => false, 'message' => '评论功能已关闭'];
     }
-
     if (!isEmailAllowed($email, $settings)) {
         return ['success' => false, 'message' => '该邮箱不允许发送评论'];
     }
-
     $db = Db::getInstance();
     $emailHash = md5(strtolower(trim($email)));
-    $name = htmlspecialchars($name);  // 使用登录用户的昵称或表单提交的昵称
+    $name = htmlspecialchars($name); 
     $content = nl2br(htmlspecialchars($data['content'] ?? ''));
     $parentId = empty($data['parent_id']) || $data['parent_id'] == '0' ? null : $data['parent_id'];
     $needsModeration = true; 
     $stmt_email = $db->prepare("SELECT moderation FROM email_moderation WHERE email_hash = ?");
     $stmt_email->execute([$emailHash]);
     $emailMode = $stmt_email->fetchColumn();
-
     if ($emailMode === 'auto') {
         $needsModeration = false;
     } elseif ($emailMode === 'strict') {
@@ -268,12 +230,10 @@ function addNewComment($articleId, $data) {
             $needsModeration = true;
         }
     }
-
     try {
         $stmt = $db->prepare("INSERT INTO comments 
             (article_id, parent_id, name, email, email_hash, content, approved)
             VALUES (?, ?, ?, ?, ?, ?, ?)");
-
         $stmt->execute([
             $articleId,
             $parentId,
@@ -283,7 +243,6 @@ function addNewComment($articleId, $data) {
             $content,
             $needsModeration ? 0 : 1
         ]);
-
         return [
             'success' => true,
             'message' => $needsModeration ? '评论已提交，等待审核' : '评论已发布',
@@ -293,7 +252,6 @@ function addNewComment($articleId, $data) {
         return ['success' => false, 'message' => '评论提交失败: ' . $e->getMessage()];
     }
 }
-
 function addReplyToComment(&$comments, $reply) {
     if ($reply['id'] == $reply['parent_id']) {
         return false;
@@ -302,19 +260,16 @@ function addReplyToComment(&$comments, $reply) {
         if ($comment['id'] == $reply['id']) {
             continue;
         }
-        
         if ($comment['id'] == $reply['parent_id']) {
             array_unshift($comment['replies'], $reply);
             return true;
         }
-        
         if (!empty($comment['replies']) && addReplyToComment($comment['replies'], $reply)) {
             return true;
         }
     }
     return false;
 }
-
 function moderateComment($articleId, $commentId, $approved) {
     $db = Db::getInstance();
     try {
@@ -325,7 +280,6 @@ function moderateComment($articleId, $commentId, $approved) {
         return false;
     }
 }
-
 function moderateCommentRecursive(&$comments, $commentId, $approved) {
     foreach ($comments as &$comment) {
         if ($comment['id'] == $commentId) {
@@ -344,7 +298,6 @@ function moderateCommentRecursive(&$comments, $commentId, $approved) {
     }
     return ['found' => false];
 }
-
 function deleteComment($articleId, $commentId) {
     $db = Db::getInstance();
     try {
@@ -359,7 +312,6 @@ function deleteComment($articleId, $commentId) {
         return false;
     }
 }
-
 function getChildComments($parentId) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT id FROM comments WHERE parent_id = ?");
@@ -372,7 +324,6 @@ function getChildComments($parentId) {
     }
     return $allChildren;
 }
-
 function deleteCommentRecursive($comments, $commentId) {
     $newComments = [];
     foreach ($comments as $comment) {
@@ -386,7 +337,6 @@ function deleteCommentRecursive($comments, $commentId) {
     }
     return $newComments;
 }
-
 function updateEmailModeration($emailHash, $mode) {
     $db = Db::getInstance();
     try {
@@ -395,7 +345,6 @@ function updateEmailModeration($emailHash, $mode) {
             moderation VARCHAR(20) NOT NULL DEFAULT 'strict',
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
-        
         $stmt = $db->prepare("
             INSERT INTO email_moderation (email_hash, moderation)
             VALUES (?, ?)
@@ -407,19 +356,16 @@ function updateEmailModeration($emailHash, $mode) {
         return false;
     }
 }
-
 function getParentComment($commentId, $comments = null) {
     if ($comments === null) {
         global $id;
         $commentsData = getArticleComments($id);
         $comments = $commentsData['comments'];
     }
-    
     foreach ($comments as $comment) {
         if ($comment['id'] == $commentId) {
             return $comment;
         }
-        
         if (!empty($comment['replies'])) {
             $found = getParentComment($commentId, $comment['replies']);
             if ($found) {
@@ -427,6 +373,5 @@ function getParentComment($commentId, $comments = null) {
             }
         }
     }
-    
     return null;
 }

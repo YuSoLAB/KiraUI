@@ -28,7 +28,6 @@ function displayPendingCommentAdmin($comment, $articleId) {
             <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
             <button type="submit" class="btn btn-success btn-sm">批准</button>
         </form>
-        
         <form method="post" style="display: inline;">
             <input type="hidden" name="comment_action" value="reject">
             <input type="hidden" name="article_id" value="<?php echo $articleId; ?>">
@@ -36,7 +35,6 @@ function displayPendingCommentAdmin($comment, $articleId) {
             <button type="submit" class="btn btn-warning btn-sm">拒绝并删除</button>
         </form>
     </div>
-    
     <?php if (!empty($comment['replies'])): ?>
     <div class="replies">
         <?php foreach ($comment['replies'] as $reply): ?>
@@ -47,7 +45,6 @@ function displayPendingCommentAdmin($comment, $articleId) {
 </div>
 <?php
 }
-
 function displayApprovedCommentAdmin($comment, $articleId) {
 ?>
 <div class="comment-item approved">
@@ -76,7 +73,6 @@ function displayApprovedCommentAdmin($comment, $articleId) {
             <button type="submit" class="btn btn-danger btn-sm">删除</button>
         </form>
     </div>
-    
     <?php if (!empty($comment['replies'])): ?>
     <div class="replies">
         <?php foreach ($comment['replies'] as $reply): ?>
@@ -91,7 +87,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_action'])) {
     $action = $_POST['comment_action'];
     $articleId = $_POST['article_id'] ?? 0;
     $commentId = $_POST['comment_id'] ?? '';
-    
     switch ($action) {
         case 'approve':
             moderateComment($articleId, $commentId, true);
@@ -125,7 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_action'])) {
             ];        
             $newSettings['allowed_domains'] = array_filter(array_map('trim', $newSettings['allowed_domains']));
             $newSettings['blocked_domains'] = array_filter(array_map('trim', $newSettings['blocked_domains']));
-            
             if (saveCommentSettings($newSettings)) {
                 $commentSettings = $newSettings;
                 $message = "评论设置已保存";
@@ -135,7 +129,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_action'])) {
             break;
     }
 }
-
 $db = Db::getInstance();
 $stmt = $db->query("SELECT c.*, a.title FROM comments c
                    LEFT JOIN articles a ON c.article_id = a.id
@@ -154,7 +147,6 @@ foreach ($allDbComments as $comment) {
     }
     $articleComments[$articleId]['comments'][] = $comment;
 }
-
 $allComments = ['pending' => [], 'approved' => []];
 foreach ($articleComments as $article) {
     $pending = array_filter($article['comments'], function($c) {
@@ -172,7 +164,6 @@ foreach ($articleComments as $article) {
         $allComments['approved'][$article['id']]['comments'] = $approved;
     }
 }
-
 $allEmails = [];
 foreach ($allDbComments as $comment) {
     $emailHash = $comment['email_hash'] ?? '';
@@ -199,7 +190,6 @@ $allEmails = array_values($allEmails);
 <div class="tab-content" id="comments">
     <div class="section">
         <h2>评论管理</h2>
-        
         <?php if (isset($message) && !empty(trim($message))): ?>
             <div class="message success"><?php echo $message; ?></div>
         <?php endif; ?>
@@ -207,14 +197,12 @@ $allEmails = array_values($allEmails);
             <h3>评论设置</h3>
             <form method="post">
                 <input type="hidden" name="comment_action" value="save_settings">
-                
                 <div class="form-group">
                     <label style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; margin-bottom: 15px;">
                         <input type="checkbox" name="enable_comments" <?php echo $commentSettings['enable_comments'] ? 'checked' : ''; ?>>
                         启用评论功能
                     </label>
                 </div>
-                
                 <div class="form-group">
                     <label style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; margin-bottom: 15px;">
                         <input type="checkbox" name="allow_guest_comments" <?php echo isset($commentSettings['allow_guest_comments']) && $commentSettings['allow_guest_comments'] ? 'checked' : ''; ?>>
@@ -222,7 +210,6 @@ $allEmails = array_values($allEmails);
                     </label>
                     <small>不勾选时，只有登录用户可以评论</small>
                 </div>
-
                 <div class="form-group">
                     <label for="default_moderation">默认审核模式</label>
                     <select id="default_moderation" name="default_moderation">
@@ -234,7 +221,6 @@ $allEmails = array_values($allEmails);
                         </option>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label for="email_mode">邮箱过滤模式</label>
                     <select id="email_mode" name="email_mode">
@@ -249,26 +235,21 @@ $allEmails = array_values($allEmails);
                         </option>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label for="allowed_domains">允许的邮箱域名（每行一个）</label>
                     <textarea id="allowed_domains" name="allowed_domains" rows="5"><?php echo implode("\n", $commentSettings['allowed_domains']); ?></textarea>
                     <small>仅在白名单模式下生效</small>
                 </div>
-                
                 <div class="form-group">
                     <label for="blocked_domains">禁止的邮箱域名（每行一个）</label>
                     <textarea id="blocked_domains" name="blocked_domains" rows="5"><?php echo implode("\n", $commentSettings['blocked_domains']); ?></textarea>
                     <small>在黑名单模式下生效</small>
                 </div>
-                
                 <button type="submit" class="btn btn-primary">保存设置</button>
             </form>
         </div>
-        
         <div class="comments-management">
             <h3>待审核评论</h3>
-            
             <?php if (empty($allComments['pending'])): ?>
                 <p>暂无待审核评论</p>
             <?php else: ?>
@@ -279,7 +260,6 @@ $allEmails = array_values($allEmails);
                             <?php echo $article['title']; ?>
                         </a>
                     </h4>
-                    
                     <?php foreach ($article['comments'] as $comment): ?>
                         <?php displayPendingCommentAdmin($comment, $article['id']); ?>
                     <?php endforeach; ?>
@@ -287,10 +267,8 @@ $allEmails = array_values($allEmails);
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-
         <div class="comments-management">
             <h3>已通过评论</h3>
-            
             <?php if (empty($allComments['approved'])): ?>
                 <p>暂无已通过评论</p>
             <?php else: ?>
@@ -301,7 +279,6 @@ $allEmails = array_values($allEmails);
                             <?php echo $article['title']; ?>
                         </a>
                     </h4>
-                    
                     <?php foreach ($article['comments'] as $comment): ?>
                         <?php displayApprovedCommentAdmin($comment, $article['id']); ?>
                     <?php endforeach; ?>
@@ -309,7 +286,6 @@ $allEmails = array_values($allEmails);
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-        
         <div class="email-management">
             <h3>邮箱管理</h3>
             <table class="email-table">
@@ -332,7 +308,6 @@ $allEmails = array_values($allEmails);
                         WHERE email_hash IS NOT NULL AND email_hash != ''
                     ");
                     $uniqueEmails = $stmt->fetchAll();
-                    
                     foreach ($uniqueEmails as $emailData):
                         $emailHash = $emailData['email_hash'];
                         $email = $emailData['email'];
@@ -360,7 +335,6 @@ $allEmails = array_values($allEmails);
                         </td>
                     </tr>
                     <?php endforeach; ?>
-                    
                     <?php if (empty($uniqueEmails)): ?>
                     <tr>
                         <td colspan="4">暂无评论邮箱记录</td>

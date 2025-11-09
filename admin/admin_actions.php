@@ -4,22 +4,18 @@ switch ($_POST['action']) {
         $cache->clear();
         $message = "所有缓存已清空！";
         break;
-        
     case 'clear_expired':
         $cache->clearExpired();
         $message = "过期缓存已清理！";
         break;
-        
     case 'rebuild_index':
         $articleIndex->buildIndex();
         $message = "文章索引已重建！";
         break;
-        
     case 'clear_index':
         $articleIndex->clearIndex();
         $message = "文章索引已清空！";
         break;
-
     case 'move_to_draft':
         $id = $_POST['id'] ?? 0;
         if (moveToDraft($id)) {
@@ -30,7 +26,6 @@ switch ($_POST['action']) {
             $message = "移动失败";
         }
         break;
-        
     case 'publish_draft':
         $id = $_POST['id'] ?? 0;
         if (publishFromDraft($id)) {
@@ -41,7 +36,6 @@ switch ($_POST['action']) {
             $message = "发布失败";
         }
         break;
-        
     case 'save_draft':
         $result = saveDraft($_POST);
         if ($result['success']) {
@@ -54,7 +48,6 @@ switch ($_POST['action']) {
             $message = "保存失败: " . $result['error'];
         }
         break;
-        
     case 'delete_draft':
         $id = $_POST['id'] ?? 0;
         if (deleteDraft($id)) {
@@ -65,7 +58,6 @@ switch ($_POST['action']) {
             $message = "删除失败";
         }
         break;
-        
     case 'save_article':
         $result = saveArticle($_POST);
         if ($result['success']) {
@@ -84,7 +76,6 @@ switch ($_POST['action']) {
             $message = "保存失败: " . $result['error'];
         }
         break;
-        
     case 'delete_article':
         $id = $_POST['id'] ?? 0;
         if (deleteArticle($id)) {

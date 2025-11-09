@@ -6,7 +6,6 @@
             <h2>文章列表</h2>
             <a href="?page=edit_article&edit=new" class="btn btn-primary">发布新文章</a>
         </div>
-        
         <ul class="article-list">
             <?php if (!empty($articles)): ?>
                 <?php foreach ($articles as $article): ?>

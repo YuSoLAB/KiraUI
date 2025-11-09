@@ -6,7 +6,6 @@
             <h2>草稿箱</h2>
             <a href="?page=edit_draft&edit=new" class="btn btn-primary">新建草稿</a>
         </div>
-        
         <ul class="article-list">
             <?php 
             $drafts = getDrafts();

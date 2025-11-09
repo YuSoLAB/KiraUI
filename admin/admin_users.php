@@ -1,27 +1,21 @@
 <?php
 require_once __DIR__ . '/../include/Db.php';
 require_once 'admin_functions.php';
-
-// 处理用户状态更新
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $db = Db::getInstance();
     $userId = $_POST['user_id'] ?? 0;
-    
     switch ($_POST['action']) {
         case 'update_status':
             $status = $_POST['status'] ?? 'normal';
             $duration = $_POST['duration'] ?? 0;
             $expiresAt = null;
-            
             if ($duration > 0 && in_array($status, ['frozen', 'banned'])) {
                 $expiresAt = date('Y-m-d H:i:s', strtotime("+$duration hours"));
             }
-            
             $stmt = $db->prepare("UPDATE users SET status = ?, status_expires_at = ? WHERE id = ?");
             $stmt->execute([$status, $expiresAt, $userId]);
             $message = "用户状态已更新";
             break;
-            
         case 'save_email_settings':
             $settings = [
                 'email_mode' => $_POST['email_mode'] ?? 'all',
@@ -35,24 +29,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             break;
     }
 }
-
-// 获取所有用户
 $db = Db::getInstance();
 $stmt = $db->query("SELECT * FROM users ORDER BY created_at DESC");
 $users = $stmt->fetchAll();
-
-// 获取注册邮箱设置
 $emailSettings = getRegistrationEmailSettings();
 ?>
-
 <div class="tab-content" id="users">
     <div class="section">
         <h2>用户管理</h2>
-        
         <?php if (isset($message)): ?>
             <div class="message success"><?php echo $message; ?></div>
         <?php endif; ?>
-        
         <h3>用户列表</h3>
         <table class="data-table">
             <thead>
@@ -69,7 +56,6 @@ $emailSettings = getRegistrationEmailSettings();
             <tbody>
                 <?php foreach ($users as $user): ?>
                 <?php 
-                // 跳过管理员用户，假设管理员邮箱或用户名有特定标识
                 if ($user['role'] == 'admin' || $user['email'] == 'admin@example.com') {
                     continue;
                 }
@@ -87,7 +73,6 @@ $emailSettings = getRegistrationEmailSettings();
                             'frozen' => '冻结',
                             'banned' => '封禁'
                         ][$user['status']];
-                        
                         if ($user['status'] !== 'normal' && $user['status_expires_at']) {
                             $statusText .= " (至 " . $user['status_expires_at'] . ")";
                         }
@@ -117,12 +102,10 @@ $emailSettings = getRegistrationEmailSettings();
                 <?php endforeach; ?>
             </tbody>
         </table>
-        
         <div class="settings-card">
             <h3>注册邮箱设置</h3>
             <form method="post">
                 <input type="hidden" name="action" value="save_email_settings">
-                
                 <div class="form-group">
                     <label for="reg_email_mode">邮箱过滤模式</label>
                     <select id="reg_email_mode" name="email_mode">
@@ -137,19 +120,16 @@ $emailSettings = getRegistrationEmailSettings();
                         </option>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label for="reg_allowed_domains">允许的邮箱域名（每行一个）</label>
                     <textarea id="reg_allowed_domains" name="allowed_domains" rows="5"><?php echo implode("\n", $emailSettings['allowed_domains']); ?></textarea>
                     <small>仅在白名单模式下生效</small>
                 </div>
-                
                 <div class="form-group">
                     <label for="reg_blocked_domains">禁止的邮箱域名（每行一个）</label>
                     <textarea id="reg_blocked_domains" name="blocked_domains" rows="5"><?php echo implode("\n", $emailSettings['blocked_domains']); ?></textarea>
                     <small>在黑名单模式下生效</small>
                 </div>
-                
                 <button type="submit" class="btn btn-primary">保存设置</button>
             </form>
         </div>

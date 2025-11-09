@@ -6,7 +6,6 @@ if (!defined('ROOT_DIR')) {
 $updateResult = [];
 $updateInfo = [];
 $updater = new Updater();
-
 if (isset($_POST['check_update']) && isset($_GET['action']) && $_GET['action'] === 'check_update') {
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_write_close();
@@ -16,11 +15,9 @@ if (isset($_POST['check_update']) && isset($_GET['action']) && $_GET['action'] =
     echo json_encode($updateInfo);
     exit;
 }
-
 if (isset($_POST['check_update'])) {
     $updateInfo = $updater->checkForUpdates();
 }
-
 if (isset($_GET['action']) && $_GET['action'] === 'get_progress') {    
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_write_close();
@@ -29,7 +26,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_progress') {
     echo json_encode($updater->getProgress());
     exit;
 }
-
 if (isset($_POST['perform_update']) && isset($_POST['download_url'])) {
     if (!defined('PERFORMING_UPDATE')) {
         define('PERFORMING_UPDATE', true);        
@@ -42,26 +38,21 @@ if (isset($_POST['perform_update']) && isset($_POST['download_url'])) {
         }
     }
 }
-
 if (isset($_POST['cleanup_update_files'])) {
     header('Content-Type: application/json');
     echo json_encode(Updater::manualCleanup());
     exit;
 }
-
 $versionData = include ROOT_DIR . '/version.php';
 ?>
-
 <div class="section">
     <h2>系统更新</h2>
-    
     <div class="current-version" style="margin-bottom: 20px;">
         <p>当前版本: <?php echo $versionData['version']; ?></p>
         <?php if ($versionData['last_check'] > 0): ?>
         <p>最后检查更新: <?php echo date('Y-m-d H:i', $versionData['last_check']); ?></p>
         <?php endif; ?>
     </div>
-    
     <form method="post" class="check-update-form" style="margin-bottom: 20px;">
         <button type="submit" name="check_update" class="btn btn-primary" id="checkUpdateBtn">
             检查更新
@@ -71,15 +62,12 @@ $versionData = include ROOT_DIR . '/version.php';
             <span class="spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #333; border-radius: 50%; animation: spin 1s linear infinite;"></span>
         </div>
     </form>
-    
     <div id="updateResultContainer"></div>
-    
     <style>
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
     </style>
-
     <script>
     function startUpdate(event, form) {
         event.preventDefault();        
@@ -97,7 +85,6 @@ $versionData = include ROOT_DIR . '/version.php';
         if (!params.has('perform_update')) {
             params.append('perform_update', '1');
         }
-
         fetch('admin_update.php', {
             method: 'POST',
             headers: {
@@ -121,7 +108,6 @@ $versionData = include ROOT_DIR . '/version.php';
             console.error('进度条组件缺失，停止轮询。');
             return;
         }
-
         fetch('admin_update.php?action=get_progress')
             .then(response => response.json())
             .then(data => {
@@ -148,19 +134,16 @@ $versionData = include ROOT_DIR . '/version.php';
                 setTimeout(checkUpdateProgress, 2000);
             });
     }
-
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.querySelector('.check-update-form');
         const btn = document.getElementById('checkUpdateBtn');
         const loading = document.getElementById('updateLoading');
         const resultContainer = document.getElementById('updateResultContainer');
-
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             btn.disabled = true;
             loading.style.display = 'inline-block';
             resultContainer.innerHTML = '';
-
             try {
                 const response = await fetch('admin_update.php?action=check_update', {
                     method: 'POST',
@@ -170,10 +153,8 @@ $versionData = include ROOT_DIR . '/version.php';
                     body: 'check_update=1',
                     timeout: 10000
                 });
-
                 if (!response.ok) throw new Error('网络请求失败');                
                 const data = await response.json();
-                
                 if (data.success) {
                     if (data.has_update) {
                         resultContainer.innerHTML = `
@@ -188,7 +169,6 @@ $versionData = include ROOT_DIR . '/version.php';
                                     <button type="submit" name="perform_update" class="btn btn-danger">立即更新</button>
                                 </form>
                             </div>
-
                             <div id="updateProgress" style="display: none; margin-top: 20px;">
                                 <div class="progress-container" style="width: 100%; background-color: #eee; border-radius: 5px;">
                                     <div id="progressBar" style="width: 0%; height: 30px; border-radius: 5px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
@@ -224,24 +204,20 @@ $versionData = include ROOT_DIR . '/version.php';
         });
     });
     </script>
-
     <?php if (!empty($updateInfo)): ?>
         <?php if ($updateInfo['success']): ?>
             <?php if ($updateInfo['has_update']): ?>
                 <div class="update-available" style="padding: 15px; border-radius: 8px; background: #e8f5e9; margin-bottom: 20px;">
                     <h3>发现新版本: <?php echo $updateInfo['latest_version']; ?></h3>
-                    
                     <div class="changelog" style="margin: 15px 0; padding: 10px; background: rgba(255,255,255,0.5); border-radius: 4px; max-height: 300px; overflow-y: auto;">
                         <h4>更新内容:</h4>
                         <pre><?php echo nl2br(htmlspecialchars($updateInfo['changelog'])); ?></pre>
                     </div>
-                    
                     <form method="post" class="perform-update-form" onsubmit="startUpdate(event, this); return false;">
                         <input type="hidden" name="download_url" value="<?php echo htmlspecialchars($updateInfo['download_url']); ?>">
                         <button type="submit" name="perform_update" class="btn btn-danger">立即更新</button>
                     </form>
                 </div>
-
                 <div id="updateProgress" style="display: none; margin-top: 20px;">
                     <div class="progress-container" style="width: 100%; background-color: #eee; border-radius: 5px;">
                         <div id="progressBar" style="width: 0%; height: 30px; border-radius: 5px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
@@ -260,7 +236,6 @@ $versionData = include ROOT_DIR . '/version.php';
             </div>
         <?php endif; ?>
     <?php endif; ?>
-    
     <?php if (!empty($updateResult)): ?>
         <?php if ($updateResult['success']): ?>
             <div class="update-success message">

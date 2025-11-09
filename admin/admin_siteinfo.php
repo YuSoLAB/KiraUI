@@ -6,7 +6,6 @@ $siteConfig = [
     'site_title' => $config->get('site_title', '测试网站'),
     'welcome_text' => $config->get('welcome_text', '这是一个网站'),
 ];
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'save_config') {
         $newConfig = [
@@ -18,7 +17,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $siteConfig = array_merge($siteConfig, $newConfig);
         $message = "网站信息已保存成功！";
     }
-    
     if (isset($_POST['action']) && $_POST['action'] === 'upload_image') {
         $uploadDir = ROOT_DIR . '/img/';
         if (!file_exists($uploadDir)) {
@@ -37,7 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Logo必须是.ico格式";
             }
         }
-        
         if (!empty($_FILES['banner']['name'])) {
             $bannerExt = pathinfo($_FILES['banner']['name'], PATHINFO_EXTENSION);
             if (in_array(strtolower($bannerExt), ['png', 'jpg', 'jpeg', 'gif'])) {
@@ -64,7 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
 $imgDir = ROOT_DIR . '/img/';
 $banners = [];
 if (file_exists($imgDir)) {
@@ -73,10 +69,8 @@ if (file_exists($imgDir)) {
         return basename($path);
     }, $banners);
 }
-
 $hasLogo = file_exists($imgDir . 'logo.ico');
 ?>
-
 <div class="tab-content" id="siteinfo">
     <div class="section">
         <h2>网站信息配置</h2>
@@ -84,41 +78,32 @@ $hasLogo = file_exists($imgDir . 'logo.ico');
         <?php if (isset($message)): ?>
             <div class="message success"><?php echo $message; ?></div>
         <?php endif; ?>
-        
         <?php if (isset($error)): ?>
             <div class="message error"><?php echo $error; ?></div>
         <?php endif; ?>
-        
         <form method="post" class="config-form">
             <input type="hidden" name="action" value="save_config">
-            
             <div class="form-group">
                 <label for="badge_text">Badge 文本</label>
                 <input type="text" id="badge_text" name="badge_text" 
                        value="<?php echo htmlspecialchars($siteConfig['badge_text']); ?>" required>
             </div>
-            
             <div class="form-group">
                 <label for="site_title">网站标题</label>
                 <input type="text" id="site_title" name="site_title" 
                        value="<?php echo htmlspecialchars($siteConfig['site_title']); ?>" required>
             </div>
-            
             <div class="form-group">
                 <label for="welcome_text">欢迎词</label>
                 <textarea id="welcome_text" name="welcome_text" rows="3"><?php echo htmlspecialchars($siteConfig['welcome_text']); ?></textarea>
             </div>
-            
             <div>
                 <button type="submit" class="btn btn-primary">保存网站信息</button>
             </div>
         </form>
-        
         <form method="post" enctype="multipart/form-data" class="image-upload-form" style="margin-top: 30px;">
             <input type="hidden" name="action" value="upload_image">
-            
             <h3>图片上传</h3>
-            
             <div class="form-group">
                 <label for="logo">网站Logo (必须为ico格式，文件名自动设为logo.ico)</label>
                 <input type="file" id="logo" name="logo" accept=".ico">
@@ -126,28 +111,23 @@ $hasLogo = file_exists($imgDir . 'logo.ico');
                     <p>当前已有Logo，上传将覆盖现有文件</p>
                 <?php endif; ?>
             </div>
-            
             <div class="form-group">
                 <label for="banner">背景图片 (支持png/jpg/jpeg/gif，自动命名为banner1.png, banner2.png...)</label>
                 <input type="file" id="banner" name="banner" accept="image/*">
             </div>
-            
             <div>
                 <button type="submit" class="btn btn-primary">上传图片</button>
             </div>
         </form>
-        
         <?php if (!empty($banners) || $hasLogo): ?>
             <div class="existing-images" style="margin-top: 30px;">
                 <h3>现有图片</h3>
-                
                 <?php if ($hasLogo): ?>
                     <div class="image-item">
                         <h4>Logo</h4>
                         <img src="../img/logo.ico" alt="Logo" style="max-height: 100px;">
                     </div>
                 <?php endif; ?>
-                
                 <?php if (!empty($banners)): ?>
                     <div class="banners">
                         <h4>背景图片</h4>
