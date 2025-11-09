@@ -1,16 +1,13 @@
 <?php
 require_once __DIR__ . '/FileCache.php';
 require_once dirname(__DIR__) . '/include/Db.php';
-
 class ArticleIndex {
     private $cache;
     private $db;
-    
     public function __construct() {
         $this->cache = new FileCache();
         $this->db = Db::getInstance();
     }
-    
     public function buildIndex() {
         try {
             $this->db->exec("TRUNCATE TABLE article_index");
@@ -53,7 +50,6 @@ class ArticleIndex {
             return [];
         }
     }
-    
     public function getIndex($forceRefresh = false) {
         try {
             $cache_key = 'article_index';
@@ -63,7 +59,6 @@ class ArticleIndex {
             } else {
                 $index = $this->cache->get($cache_key);
             }
-            
             if ($index === false || empty($index)) {
                 $stmt = $this->db->query("SELECT * FROM article_index ORDER BY date DESC");
                 $articles = $stmt->fetchAll();   
@@ -82,15 +77,12 @@ class ArticleIndex {
                 }
                 $this->cache->set($cache_key, $index, 1800);
             }
-            
             return is_array($index) ? $index : [];
-            
         } catch (Exception $e) {
             error_log("获取文章索引错误: " . $e->getMessage());
             return [];
         }
     }
-
     public function getArticleInfo($id) {
         try {
             $stmt = $this->db->prepare("SELECT * FROM article_index WHERE id = ?");
@@ -114,7 +106,6 @@ class ArticleIndex {
             return false;
         }
     }
-
     public function updateTagStats() {
         $this->db->exec("TRUNCATE TABLE tag_stats");
         $stmt = $this->db->query("SELECT tags FROM article_index WHERE tags IS NOT NULL AND tags != ''");
@@ -132,13 +123,11 @@ class ArticleIndex {
                 }
             }
         }
-        
         $stmt = $this->db->prepare("INSERT INTO tag_stats (tag, count) VALUES (?, ?)");
         foreach ($tagCounts as $tag => $count) {
             $stmt->execute([$tag, $count]);
         }
     }
-    
     public function clearIndex() {
         try {
             $this->db->exec("TRUNCATE TABLE article_index");
@@ -151,7 +140,6 @@ class ArticleIndex {
             return false;
         }
     }
-    
     public function getIndexStats() {
         $index = $this->getIndex();
         $tagStats = [];

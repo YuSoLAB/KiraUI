@@ -13,15 +13,11 @@ return array (
         const M = 24 * 60 * 60 * 1000;
         const totalDays = T / M;
         const A = Math.floor(totalDays);
-
         const remainingHours = (totalDays - A) * 24;
         const B = Math.floor(remainingHours);
-
         const remainingMinutes = (remainingHours - B) * 60;
         const C = Math.floor(remainingMinutes);
-
         const D = Math.floor((remainingMinutes - C) * 60);
-
         span.innerHTML = `本网站已运行: ${A}天${B}小时${C}分${D}秒`;
     }
     setInterval(runtime, 1000);

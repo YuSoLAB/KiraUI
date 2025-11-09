@@ -2,7 +2,6 @@
 class FileCache {
     private $cache_dir;
     private $expire_time;
-    
     public function __construct($cache_dir = null, $expire_time = 3600) {
         $this->cache_dir = $cache_dir ?: dirname(__DIR__) . '/cache/data';
         $this->expire_time = $expire_time;
@@ -12,19 +11,16 @@ class FileCache {
             }
         }
     }
-    
     public function get($key) {
         try {
             $filename = $this->getFilename($key);            
             if (!file_exists($filename)) {
                 return false;
             }
-            
             if (time() - filemtime($filename) > $this->expire_time) {
                 @unlink($filename);
                 return false;
             }
-            
             $data = file_get_contents($filename);
             if ($data === false) {
                 return false;
@@ -34,35 +30,28 @@ class FileCache {
                 @unlink($filename);
                 return false;
             }
-            
             return $cache_data['data'] ?? false;
-            
         } catch (Exception $e) {
             error_log("缓存获取错误: " . $e->getMessage());
             return false;
         }
     }
-    
     public function set($key, $data, $custom_expire = null) {
         try {
             $filename = $this->getFilename($key);
             $expire = $custom_expire ?: $this->expire_time;
-            
             $cache_data = [
                 'data' => $data,
                 'expire' => time() + $expire,
                 'created' => time()
             ];
-            
             $result = file_put_contents($filename, serialize($cache_data), LOCK_EX);
             return $result !== false;
-            
         } catch (Exception $e) {
             error_log("缓存设置错误: " . $e->getMessage());
             return false;
         }
     }
-    
     public function delete($key) {
         $filename = $this->getFilename($key);
         if (file_exists($filename)) {
@@ -70,7 +59,6 @@ class FileCache {
         }
         return true;
     }
-    
     public function clear() {
         try {
             $files = glob($this->cache_dir . '/*.cache');
@@ -88,7 +76,6 @@ class FileCache {
             return false;
         }
     }
-    
     public function clearExpired() {
         try {
             $files = glob($this->cache_dir . '/*.cache');
@@ -103,11 +90,9 @@ class FileCache {
             return false;
         }
     }
-    
     private function getFilename($key) {
         return $this->cache_dir . '/' . md5($key) . '.cache';
     }
-
     public function getStats() {
         try {
             $files = glob($this->cache_dir . '/*.cache');
@@ -126,13 +111,11 @@ class FileCache {
                     }
                 }
             }
-            
             if ($totalSize >= 1048576) {
                 $formattedSize = round($totalSize / 1048576, 2) . ' MB';
             } else {
                 $formattedSize = round($totalSize / 1024, 2) . ' KB';
             }
-            
             return [
                 'total_files' => $totalFiles,
                 'active_files' => $activeFiles,
