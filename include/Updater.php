@@ -9,12 +9,10 @@ class Updater {
         'cache/',
         'img/',
     ];
-
     private $cacheWhitelist = [
         'cache/FileCache.php',
         'cache/ArticleIndex.php'
     ];
-
     public function __construct($updateInfoUrl = 'https://www.yusolab.com/info.json') {
         $this->updateInfoUrl = $updateInfoUrl;
         $this->dbConfigFile = ROOT_DIR . '/include/Db.php';
@@ -22,7 +20,6 @@ class Updater {
         $versionData = include ROOT_DIR . '/version.php';
         $this->currentVersion = $versionData['version'];
     }
-
     private function updateProgress($step, $message, $percentage = 0) {
         $progress = [
             'step' => $step,
@@ -30,14 +27,11 @@ class Updater {
             'percentage' => $percentage,
             'timestamp' => time()
         ];
-        
         if (!file_exists(dirname($this->progressFile))) {
             mkdir(dirname($this->progressFile), 0755, true);
         }
-        
         file_put_contents($this->progressFile, json_encode($progress));
     }
-
     public function getProgress() {
         if (file_exists($this->progressFile)) {
             $content = file_get_contents($this->progressFile);
@@ -45,7 +39,6 @@ class Updater {
         }
         return ['step' => 0, 'message' => '未开始', 'percentage' => 0];
     }
-
     public function checkForUpdates() {
         try {
             $ch = curl_init($this->updateInfoUrl);
@@ -53,7 +46,6 @@ class Updater {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             $response = curl_exec($ch);
             curl_close($ch);
-
             if (!$response) {
                 return ['success' => false, 'message' => '无法连接到更新服务器'];
             }
@@ -74,7 +66,6 @@ class Updater {
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }
-
     private function getAllFiles($dir) {
         $files = [];
         $dir = rtrim($dir, '/') . '/';
@@ -82,7 +73,6 @@ class Updater {
             new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
             RecursiveIteratorIterator::SELF_FIRST
         );
-
         foreach ($iterator as $item) {
             if ($item->isFile()) {
                 $relativePath = str_replace($dir, '', $item->getPathname());
@@ -92,7 +82,6 @@ class Updater {
         }
         return $files;
     }
-
     private function cleanupObsoleteFiles($newFiles, $targetDir) {
         $targetDir = rtrim($targetDir, '/') . '/';
         $oldFiles = $this->getAllFiles($targetDir);
@@ -112,7 +101,6 @@ class Updater {
         }
         $this->cleanupEmptyDirectories($targetDir);
     }
-
     private function cleanupEmptyDirectories($dir) {
         $dir = rtrim($dir, '/') . '/';
         if (!is_dir($dir)) return;
@@ -130,7 +118,6 @@ class Updater {
             @rmdir($dir);
         }
     }
-
     public function performUpdate($downloadUrl) {
         $this->updateProgress(0, '开始准备更新', 0);
         set_time_limit(300);
@@ -179,7 +166,6 @@ class Updater {
                     break;
                 }
             }
-
             if (!$migrationFileFound) {
                 $this->updateProgress(8, '未找到数据库迁移文件，跳过此步骤', 90);
             }
@@ -193,7 +179,6 @@ class Updater {
             return ['success' => false, 'message' => '更新失败: ' . $e->getMessage()];
         }
     }
-
     private function downloadFile($url, $destination) {
         $ch = curl_init($url);
         $file = fopen($destination, 'w');      
@@ -207,20 +192,17 @@ class Updater {
             throw new Exception('无法下载更新包');
         }
     }
-
     private function extractZip($zipFile, $destination) {
         $zip = new ZipArchive;
         if ($zip->open($zipFile) !== true) {
             throw new Exception('无法打开更新包');
         }
-
         if (!$zip->extractTo($destination)) {
             $zip->close();
             throw new Exception('无法解压更新包');
         }
         $zip->close();
     }
-
     private function copyUpdatedFiles($sourceDir, $destDir) {
         $dir = new RecursiveDirectoryIterator($sourceDir, RecursiveDirectoryIterator::SKIP_DOTS);
         $iterator = new RecursiveIteratorIterator($dir, RecursiveIteratorIterator::SELF_FIRST);
@@ -246,7 +228,6 @@ class Updater {
             }
         }
     }
-
     private function shouldExclude($path) {
         $path = str_replace('\\', '/', $path);        
         foreach ($this->excludedFiles as $exclude) {
@@ -264,7 +245,6 @@ class Updater {
         }
         return false;
     }
-
     private function runMigrations($migrationFile) {
         try {
             if (!file_exists($migrationFile)) {
@@ -281,13 +261,11 @@ class Updater {
             if ($dbConfig && file_exists($this->dbConfigFile)) {
                 file_put_contents($this->dbConfigFile, $dbConfig);
             }
-            
         } catch (Exception $e) {
             error_log("数据库迁移失败: " . $e->getMessage());
             throw new Exception("数据库迁移执行失败: " . $e->getMessage());
         }
     }
-
     private function updateVersionFile($newVersionFile) {
         if (file_exists($newVersionFile)) {
             $versionData = include $newVersionFile;
@@ -298,11 +276,9 @@ class Updater {
             );
         }
     }
-
     private function cleanup($tempDir) {
         $this->deleteDirectory($tempDir);
     }
-
     public static function manualCleanup() {
         $tempDir = ROOT_DIR . '/temp_update/';
         $updater = new self();
@@ -310,16 +286,13 @@ class Updater {
         @unlink(ROOT_DIR . '/temp_update/progress.json');
         return ['success' => true, 'message' => '临时文件清理完成'];
     }
-
     private function deleteDirectory($dir) {
         if (!file_exists($dir)) return true;
         if (!is_dir($dir)) return unlink($dir);
-        
         foreach (scandir($dir) as $item) {
             if ($item == '.' || $item == '..') continue;
             if (!$this->deleteDirectory($dir . '/' . $item)) return false;
         }
-        
         return rmdir($dir);
     }
 }
