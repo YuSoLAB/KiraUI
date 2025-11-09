@@ -38,7 +38,6 @@
            data-comment-id="<?php echo $comment['id']; ?>"
            data-comment-name="<?php echo $comment['name']; ?>">回复</a>
     </div>
-    
     <?php if (!empty($comment['replies'])): ?>
     <div class="replies">
         <?php foreach ($comment['replies'] as $reply): ?>

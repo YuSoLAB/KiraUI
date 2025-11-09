@@ -12,7 +12,6 @@ function encrypt_download_url($original_url) {
     $encrypted = openssl_encrypt($data, 'aes-256-cbc', $secret_key, 0, $iv);
     return base64_encode($iv . '::' . $encrypted);
 }
-
 function decrypt_download_url($encrypted_data) {
     $secret_key = 'your_secure_random_key_here';    
     try {

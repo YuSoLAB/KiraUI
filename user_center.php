@@ -1,16 +1,11 @@
 <?php
 session_start();
 require_once 'admin/admin_functions.php';
-// 检查用户是否登录
 if (!isset($_SESSION['user_logged_in']) || $_SESSION['user_logged_in'] !== true) {
     header('Location: login.php');
     exit;
 }
-
-// 先从Session中获取用户信息
 $user = $_SESSION['user'];
-
-// 再检查用户状态
 $status = checkUserStatus($user['id']);
 $isBanned = false;
 if ($status == 'frozen') {
@@ -25,33 +20,27 @@ $message = '';
 $error = '';
 if (isset($_SESSION['message'])) {
     $message = $_SESSION['message'];
-    unset($_SESSION['message']); // 显示后清除
+    unset($_SESSION['message']);
 }
 if (isset($_SESSION['error'])) {
     $error = $_SESSION['error'];
-    unset($_SESSION['error']); // 显示后清除
+    unset($_SESSION['error']);
 }
 $user = $_SESSION['user'];
-
-// 处理表单提交
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db = Db::getInstance();
-    
-    // 修改昵称
     if (isset($_POST['action']) && $_POST['action'] === 'update_nickname') {
         if ($isBanned) {
             $_SESSION['error'] = '您的账号已被封禁，无法修改个人信息';
             $tab = $_POST['active_tab'] ?? 'profile';
             header("Location: user_center.php?tab=$tab");
-            exit; // 关键：终止后续操作
+            exit;
         }
         $newNickname = trim($_POST['nickname']);
         if (!empty($newNickname) && strlen($newNickname) <= 50) {
             $stmt = $db->prepare("UPDATE users SET nickname = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
             if ($stmt->execute([$newNickname, $user['id']])) {
-                // 更新会话中的昵称
                 $_SESSION['user']['nickname'] = $newNickname;
-                // 存储成功信息到 Session
                 $_SESSION['message'] = '昵称更新成功';
             } else {
                 $_SESSION['error'] = '昵称更新失败';
@@ -59,17 +48,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $_SESSION['error'] = '请输入有效的昵称（不超过50个字符）';
         }
-        // 重定向到当前页面（关键步骤），可保留标签页状态
-        $tab = $_POST['active_tab'] ?? 'profile'; // 假设表单中带了当前标签页参数
+        $tab = $_POST['active_tab'] ?? 'profile';
         header("Location: user_center.php?tab=$tab");
-        exit; // 必须 exit 终止后续代码执行
+        exit;
     }
-    
-    // 修改密码
     if (isset($_POST['action']) && $_POST['action'] === 'update_password') {
         $newPassword = $_POST['new_password'];
         $confirmPassword = $_POST['confirm_password'];
-        
         if ($newPassword !== $confirmPassword) {
             $error = '两次输入的密码不一致';
         } elseif (strlen($newPassword) < 6) {
@@ -83,54 +68,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = '密码更新失败';
             }
         }
-        $tab = $_POST['active_tab'] ?? 'profile'; // 假设表单中带了当前标签页参数
+        $tab = $_POST['active_tab'] ?? 'profile';
         header("Location: user_center.php?tab=$tab");
-        exit; // 必须 exit 终止后续代码执行
+        exit;
     }
-    
-    // 上传头像
     if (isset($_POST['action']) && $_POST['action'] === 'upload_avatar') {
         if ($isBanned) {
             $_SESSION['error'] = '您的账号已被封禁，无法修改个人信息';
-            // 处理AJAX和非AJAX请求的响应
             if ($isAjax) {
                 echo json_encode(['success' => false, 'message' => '您的账号已被封禁，无法修改个人信息']);
             } else {
                 $tab = $_POST['active_tab'] ?? 'profile';
                 header("Location: user_center.php?tab=$tab");
             }
-            exit; // 关键：终止后续操作
+            exit; 
         }
-        // 检查是否是AJAX请求
         $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-        
-        // 确保在AJAX请求时总是返回JSON
         if ($isAjax) {
             header('Content-Type: application/json');
         }
-        
         if (!empty($_FILES['avatar']['name'])) {
             $uploadDir = 'uploads/avatars/';
             if (!file_exists($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
-            
             $fileInfo = pathinfo($_FILES['avatar']['name']);
             $extension = strtolower($fileInfo['extension']);
             $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-            
             if (in_array($extension, $allowedExtensions)) {
                 $filename = $user['id'] . '.' . $extension;
                 $targetPath = $uploadDir . $filename;
-                
                 if (move_uploaded_file($_FILES['avatar']['tmp_name'], $targetPath)) {
-                    // 更新数据库中的头像路径
                     $stmt = $db->prepare("UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
                     if ($stmt->execute([$filename, $user['id']])) {
-                        // 更新会话中的头像信息
                         $_SESSION['user']['avatar'] = $filename;
                         $avatarUrl = 'uploads/avatars/' . $filename;
-                        
                         if ($isAjax) {
                             echo json_encode([
                                 'success' => true,
@@ -142,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $_SESSION['message'] = '头像上传成功';
                         }
                     } else {
-                        unlink($targetPath); // 清理已上传的文件
+                        unlink($targetPath); 
                         if ($isAjax) {
                             echo json_encode([
                                 'success' => false,
@@ -176,7 +148,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } else {
-            // 没有选择文件的情况
             if ($isAjax) {
                 echo json_encode([
                     'success' => false,
@@ -187,8 +158,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['error'] = '请选择要上传的头像文件';
             }
         }
-        
-        // 非AJAX请求的重定向
         if (!$isAjax) {
             $tab = $_POST['active_tab'] ?? 'profile';
             header("Location: user_center.php?tab=$tab");
@@ -196,7 +165,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-// 获取最新的用户信息
 $db = Db::getInstance();
 $stmt = $db->prepare("SELECT nickname, email, avatar FROM users WHERE id = ?");
 $stmt->execute([$user['id']]);
@@ -205,17 +173,13 @@ $user['nickname'] = $userInfo['nickname'];
 $user['email'] = $userInfo['email'];
 $user['avatar'] = $userInfo['avatar'];
 $_SESSION['user'] = $user;
-
-// 确定当前头像URL
 if (!empty($user['avatar'])) {
     $avatarUrl = 'uploads/avatars/' . $user['avatar'];
 } elseif (preg_match('/^(\d+)@(qq\.com|vip\.qq\.com)$/', $user['email'], $matches)) {
-    $avatarUrl = 'https://q1.qlogo.cn/g?b=qq&nk=' . $matches[1] . '&s=640';
+    $avatarUrl = 'https:
 } else {
-    $avatarUrl = 'https://via.placeholder.com/120?text=' . urlencode(substr($user['nickname'], 0, 1));
+    $avatarUrl = 'https:
 }
-
-// 获取当前激活的标签
 $activeTab = $_GET['tab'] ?? 'profile';
 ?>
 <!DOCTYPE html>
@@ -233,7 +197,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             position: relative;
             z-index: 1;
         }
-        
         .user-center-card {
             width: min(1000px, 94vw);
             background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.12)) , var(--card);
@@ -246,7 +209,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             overflow: hidden;
             margin: 0 auto;
         }
-
         .user-center-card::before {
             content: "";
             position: absolute;
@@ -256,7 +218,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             opacity: .35;
             z-index: -1;
         }
-        
         .user-center-header {
             display: flex;
             justify-content: space-between;
@@ -266,13 +227,11 @@ $activeTab = $_GET['tab'] ?? 'profile';
             gap: 16px;
             position: relative;
         }
-        
         .header-left {
             display: flex;
             align-items: center;
             gap: 20px;
         }
-        
         .user-center-title {
             font-size: clamp(24px, 4vw, 36px);
             letter-spacing: .4px;
@@ -284,8 +243,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             color: transparent;
             text-shadow: 0 2px 0 #ffffff80;
         }
-        
-        /* 主题切换按钮新位置样式 */
         .theme-toggle-header {
             background: #ffffffaa;
             border: 1.5px solid rgba(155,140,255,.55);
@@ -300,62 +257,46 @@ $activeTab = $_GET['tab'] ?? 'profile';
             transition: all 0.2s ease;
             backdrop-filter: blur(6px);
         }
-        
         .theme-toggle-header:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(155, 140, 255, 0.2);
         }
-        
-        /* 修复暗色模式文本颜色问题 */
         body.dark-mode .sidebar-menu a {
             color: rgba(255, 255, 255, 0.85);
         }
-        
         body.dark-mode .avatar-info h3 {
             color: rgba(255, 255, 255, 0.9);
         }
-        
         body.dark-mode .avatar-info p {
             color: rgba(255, 255, 255, 0.7);
         }
-        
         body.dark-mode .form-group label {
             color: rgba(255, 255, 255, 0.8);
         }
-        
         body.dark-mode .empty-state {
             color: rgba(255, 255, 255, 0.7);
         }
-        
         body.dark-mode .profile-section h2 {
             color: rgba(255, 255, 255, 0.9);
         }
-        
-        /* 隐藏原来的主题切换按钮 */
         #themeToggle {
             display: none;
         }
-        
-        /* 暗色模式下的主题切换按钮样式 */
         body.dark-mode .theme-toggle-header {
             background: rgba(42, 42, 66, 0.6);
             border-color: rgba(176, 160, 255, 0.35);
             color: var(--dark-vio);
         }
-
-        /* 响应式调整 */
         @media (max-width: 768px) {
             .header-left {
                 width: 100%;
                 justify-content: space-between;
             }
-            
             .user-center-header {
                 flex-direction: column;
                 align-items: flex-start;
             }
         }
-        
         .back-home {
             display: inline-flex;
             align-items: center;
@@ -370,26 +311,22 @@ $activeTab = $_GET['tab'] ?? 'profile';
             backdrop-filter: blur(6px);
             transition: all 0.2s ease;
         }
-        
         .back-home:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(155, 140, 255, 0.2);
             text-decoration: none;
             color: #6c5dfb;
         }
-        
         .user-center-content {
             display: grid;
             grid-template-columns: 280px 1fr;
             gap: 24px;
         }
-        
         @media (max-width: 768px) {
             .user-center-content {
                 grid-template-columns: 1fr;
             }
         }
-        
         .sidebar {
             background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.12)) , var(--card);
             border: 1.5px solid rgba(255, 158, 236, .35);
@@ -400,7 +337,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             position: relative;
             overflow: hidden;
         }
-        
         .sidebar::before {
             content: "";
             position: absolute;
@@ -410,17 +346,14 @@ $activeTab = $_GET['tab'] ?? 'profile';
             opacity: .2;
             z-index: -1;
         }
-        
         .sidebar-menu {
             list-style: none;
             padding: 0;
             margin: 0;
         }
-        
         .sidebar-menu li {
             margin-bottom: 8px;
         }
-        
         .sidebar-menu a {
             display: flex;
             align-items: center;
@@ -433,31 +366,26 @@ $activeTab = $_GET['tab'] ?? 'profile';
             transition: all 0.3s ease;
             border: 1.5px solid transparent;
         }
-        
         .sidebar-menu a:hover {
             background: rgba(155, 140, 255, 0.1);
             border-color: rgba(155, 140, 255, 0.3);
             transform: translateX(5px);
         }
-        
         .sidebar-menu a.active {
             background: linear-gradient(135deg, rgba(255, 77, 177, 0.15), rgba(155, 140, 255, 0.15));
             border-color: rgba(255, 77, 177, 0.3);
             color: #6c5dfb;
             box-shadow: 0 8px 25px rgba(155, 140, 255, 0.15);
         }
-        
         .sidebar-menu a svg {
             width: 18px;
             height: 18px;
         }
-        
         .main-content {
             display: flex;
             flex-direction: column;
             gap: 24px;
         }
-        
         .profile-section {
             background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.12)) , var(--card);
             border: 1.5px solid rgba(255, 158, 236, .35);
@@ -468,7 +396,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             position: relative;
             overflow: hidden;
         }
-        
         .profile-section::before {
             content: "";
             position: absolute;
@@ -478,7 +405,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             opacity: .2;
             z-index: -1;
         }
-        
         .profile-section h2 {
             font-size: 24px;
             margin-top: 0;
@@ -489,7 +415,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             background-clip: text;
             color: transparent;
         }
-        
         .avatar-container {
             display: flex;
             align-items: center;
@@ -498,14 +423,12 @@ $activeTab = $_GET['tab'] ?? 'profile';
             padding-bottom: 24px;
             border-bottom: 1px dashed rgba(155, 140, 255, 0.4);
         }
-        
         @media (max-width: 640px) {
             .avatar-container {
                 flex-direction: column;
                 text-align: center;
             }
         }
-        
         .avatar-preview {
             width: 120px;
             height: 120px;
@@ -514,37 +437,31 @@ $activeTab = $_GET['tab'] ?? 'profile';
             border: 3px solid #6c5dfb;
             box-shadow: 0 12px 30px rgba(155, 140, 255, 0.25);
         }
-        
         .avatar-info h3 {
             margin: 0 0 8px 0;
             font-size: 20px;
             font-weight: 800;
             color: var(--text);
         }
-        
         .avatar-info p {
             margin: 0;
             color: var(--sub);
         }
-        
         .avatar-upload {
             display: flex;
             gap: 12px;
             margin-top: 16px;
             flex-wrap: wrap;
         }
-        
         .form-group {
             margin-bottom: 24px;
         }
-        
         .form-group label {
             display: block;
             margin-bottom: 10px;
             font-weight: 700;
             color: var(--sub);
         }
-        
         .form-group input {
             width: 100%;
             padding: 14px 16px;
@@ -556,27 +473,22 @@ $activeTab = $_GET['tab'] ?? 'profile';
             transition: all 0.2s ease;
             box-sizing: border-box;
         }
-        
         .form-group input:focus {
             outline: none;
             border-color: #9b8cff;
             box-shadow: 0 0 0 3px rgba(155, 140, 255, 0.1);
         }
-        
         .tab-content {
             display: none;
         }
-        
         .tab-content.active {
             display: block;
             animation: fadeIn 0.4s ease;
         }
-        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
         .message {
             padding: 14px 18px;
             border-radius: 14px;
@@ -584,33 +496,27 @@ $activeTab = $_GET['tab'] ?? 'profile';
             font-weight: 600;
             border: 1.5px solid;
         }
-        
         .message.success {
             color: #2e7d32;
             background: linear-gradient(180deg, #e8f5e9, #c8e6c9);
             border-color: #a5d6a7;
         }
-        
         .message.error {
             color: #d32f2f;
             background: linear-gradient(180deg, #ffebee, #ffcdd2);
             border-color: #ef9a9a;
         }
-        
         .empty-state {
             text-align: center;
             padding: 40px 20px;
             color: var(--sub);
         }
-        
         .empty-state svg {
             width: 64px;
             height: 64px;
             margin-bottom: 16px;
             opacity: 0.5;
         }
-        
-        /* 暗色模式适配 */
         body.dark-mode .user-center-card,
         body.dark-mode .sidebar,
         body.dark-mode .profile-section {
@@ -618,35 +524,29 @@ $activeTab = $_GET['tab'] ?? 'profile';
             border-color: rgba(176, 160, 255, 0.35);
             box-shadow: 0 30px 80px rgba(176, 160, 255, 0.15), inset 0 0 0 1px rgba(255,255,255,.1);
         }
-        
         body.dark-mode .back-home {
             background: rgba(42, 42, 66, 0.6);
             color: var(--dark-vio);
             border-color: rgba(176, 160, 255, 0.35);
         }
-        
         body.dark-mode .sidebar-menu a {
             color: var(--dark-text);
         }
-        
         body.dark-mode .sidebar-menu a.active {
             background: linear-gradient(135deg, rgba(255, 102, 184, 0.15), rgba(176, 160, 255, 0.15));
             border-color: rgba(255, 102, 184, 0.3);
             color: var(--dark-vio);
         }
-        
         body.dark-mode .form-group input {
             background: rgba(42, 42, 66, 0.6);
             border-color: rgba(176, 160, 255, 0.35);
             color: var(--dark-text);
         }
-        
         body.dark-mode .message.success {
             background: linear-gradient(180deg, rgba(46, 125, 50, 0.15), rgba(76, 175, 80, 0.1));
             border-color: rgba(76, 175, 80, 0.3);
             color: #81c784;
         }
-        
         body.dark-mode .message.error {
             background: linear-gradient(180deg, rgba(211, 47, 47, 0.15), rgba(244, 67, 54, 0.1));
             border-color: rgba(244, 67, 54, 0.3);
@@ -656,14 +556,11 @@ $activeTab = $_GET['tab'] ?? 'profile';
 </head>
 <body>
     <div class="sparkles" id="sparkles"></div>
-    
     <div class="user-center-wrap">
         <div class="user-center-card">
             <div class="user-center-header">
                 <div class="header-left">
-                    <!-- 新的主题切换按钮 -->
                     <button id="themeToggleHeader" class="theme-toggle-header">🌙</button>
-                    
                     <a href="index.php" class="back-home">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="m12 19-7-7 7-7"/>
@@ -674,16 +571,13 @@ $activeTab = $_GET['tab'] ?? 'profile';
                 </div>
                 <h1 class="user-center-title">用户中心</h1>
             </div>
-            
             <?php if ($message): ?>
                 <div class="message success"><?php echo $message; ?></div>
             <?php endif; ?>
             <?php if ($error): ?>
                 <div class="message error"><?php echo $error; ?></div>
             <?php endif; ?>
-            
             <div class="user-center-content">
-                <!-- 侧边菜单 -->
                 <div class="sidebar">
                     <ul class="sidebar-menu">
                         <li>
@@ -726,10 +620,7 @@ $activeTab = $_GET['tab'] ?? 'profile';
                         </li>
                     </ul>
                 </div>
-                
-                <!-- 主内容区域 -->
                 <div class="main-content">
-                    <!-- 个人信息 -->
                     <div id="profile" class="tab-content <?php echo $activeTab === 'profile' ? 'active' : ''; ?>">
                         <div class="profile-section">
                             <h2>个人信息</h2>
@@ -738,12 +629,10 @@ $activeTab = $_GET['tab'] ?? 'profile';
                                 <div id="previewContainer" style="display: none;">
                                     <img id="avatarPreview" alt="预览" class="avatar-preview">
                                 </div>
-                                
                                 <div class="avatar-info">
                                     <h3><?php echo htmlspecialchars($user['nickname']); ?></h3>
                                     <p><?php echo htmlspecialchars($user['email']); ?></p>
                                     <p>KID: <?php echo htmlspecialchars($user['id']); ?></p>
-                                    
                                     <form method="post" enctype="multipart/form-data" class="avatar-upload" id="avatarForm">
                                         <input type="hidden" name="action" value="upload_avatar">
                                         <input type="hidden" name="active_tab" value="<?php echo $activeTab; ?>">
@@ -753,17 +642,12 @@ $activeTab = $_GET['tab'] ?? 'profile';
                                             <button type="submit" class="btn primary" id="uploadButton" disabled>上传头像</button>
                                         </div>
                                     </form>
-                                    
-                                    <!-- 进度条容器 -->
                                     <div id="uploadProgress" style="display: none; margin-top: 10px; width: 100%; background-color: #eee; border-radius: 5px;">
                                         <div id="progressBar" style="width: 0%; height: 10px; border-radius: 5px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
                                     </div>
-                                    
-                                    <!-- 状态消息 -->
                                     <div id="uploadMessage" style="margin-top: 10px; color: #666;"></div>
                                 </div>
                             </div>
-                            
                             <form method="post">
                                 <input type="hidden" name="action" value="update_nickname">
                                 <input type="hidden" name="active_tab" value="<?php echo $activeTab; ?>">
@@ -775,8 +659,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
                             </form>
                         </div>
                     </div>
-                    
-                    <!-- 安全管理 -->
                     <div id="security" class="tab-content <?php echo $activeTab === 'security' ? 'active' : ''; ?>">
                         <div class="profile-section">
                             <h2>安全管理</h2>
@@ -795,8 +677,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
                             </form>
                         </div>
                     </div>
-                    
-                    <!-- 我的文章 -->
                     <div id="articles" class="tab-content <?php echo $activeTab === 'articles' ? 'active' : ''; ?>">
                         <div class="profile-section">
                             <h2>我的文章</h2>
@@ -813,8 +693,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- 我的消息 -->
                     <div id="messages" class="tab-content <?php echo $activeTab === 'messages' ? 'active' : ''; ?>">
                         <div class="profile-section">
                             <h2>我的消息</h2>
@@ -830,7 +708,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
             </div>
         </div>
     </div>
-    
     <button id="themeToggle" class="theme-toggle" style="display: none;">🌙</button>
     <script>
         document.getElementById('avatar-upload').addEventListener('change', function(e) {
@@ -839,26 +716,21 @@ $activeTab = $_GET['tab'] ?? 'profile';
             const previewContainer = document.getElementById('previewContainer');
             const avatarPreview = document.getElementById('avatarPreview');
             const currentAvatar = document.getElementById('currentAvatar');
-            
             if (file) {
-                // 验证文件类型和大小
                 const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-                const maxSize = 2 * 1024 * 1024; // 2MB
-                
+                const maxSize = 2 * 1024 * 1024; 
                 if (!validTypes.includes(file.type)) {
                     alert('请选择 JPEG、PNG 或 GIF 格式的图片');
                     this.value = '';
                     uploadButton.disabled = true;
                     return;
                 }
-                
                 if (file.size > maxSize) {
                     alert('图片大小不能超过 2MB');
                     this.value = '';
                     uploadButton.disabled = true;
                     return;
                 }
-                
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     avatarPreview.src = event.target.result;
@@ -866,27 +738,20 @@ $activeTab = $_GET['tab'] ?? 'profile';
                     currentAvatar.style.display = 'none';
                 };
                 reader.readAsDataURL(file);
-                
-                // 启用上传按钮
                 uploadButton.disabled = false;
             } else {
-                // 没有选择文件时禁用上传按钮
                 uploadButton.disabled = true;
                 previewContainer.style.display = 'none';
                 currentAvatar.style.display = 'block';
             }
         });
-
-        // 处理头像上传表单的AJAX提交
         document.getElementById('avatarForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
             const fileInput = document.getElementById('avatar-upload');
             if (!fileInput.files[0]) {
                 alert('请先选择头像文件');
                 return;
             }
-            
             const formData = new FormData(this);
             const progressBar = document.getElementById('progressBar');
             const uploadProgress = document.getElementById('uploadProgress');
@@ -894,21 +759,14 @@ $activeTab = $_GET['tab'] ?? 'profile';
             const submitButton = document.getElementById('uploadButton');
             const currentAvatar = document.getElementById('currentAvatar');
             const previewContainer = document.getElementById('previewContainer');
-            
-            // 显示进度条并禁用按钮
             uploadProgress.style.display = 'block';
             progressBar.style.width = '0%';
             uploadMessage.textContent = '准备上传...';
             uploadMessage.style.color = '#666';
             submitButton.disabled = true;
-            
             const xhr = new XMLHttpRequest();
             xhr.open('POST', 'user_center.php', true);
-            
-            // 设置请求头标识为AJAX请求
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            
-            // 上传进度处理
             xhr.upload.addEventListener('progress', function(e) {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
@@ -916,33 +774,20 @@ $activeTab = $_GET['tab'] ?? 'profile';
                     uploadMessage.textContent = `上传中: ${Math.round(percent)}%`;
                 }
             });
-            
-            // 上传完成处理
             xhr.addEventListener('load', function() {
                 submitButton.disabled = false;
-                
-                // 检查响应状态
                 if (xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText);
-                        
                         if (response.success) {
                             uploadMessage.style.color = 'green';
                             uploadMessage.textContent = response.message || '头像上传成功！';
-                            
-                            // 更新当前头像显示
                             if (response.avatarUrl) {
                                 currentAvatar.src = response.avatarUrl + '?t=' + new Date().getTime();
                             }
-                            
-                            // 隐藏预览，显示更新后的头像
                             previewContainer.style.display = 'none';
                             currentAvatar.style.display = 'block';
-                            
-                            // 重置表单
                             document.getElementById('avatar-upload').value = '';
-                            
-                            // 3秒后隐藏进度信息
                             setTimeout(() => {
                                 uploadProgress.style.display = 'none';
                                 uploadMessage.textContent = '';
@@ -952,7 +797,6 @@ $activeTab = $_GET['tab'] ?? 'profile';
                             uploadMessage.textContent = response.message || '上传失败';
                         }
                     } catch (error) {
-                        // 如果解析JSON失败，说明服务器返回了HTML而不是JSON
                         uploadMessage.style.color = 'red';
                         uploadMessage.textContent = '服务器响应格式错误，请刷新页面重试';
                         console.error('JSON解析错误:', error);
@@ -963,54 +807,38 @@ $activeTab = $_GET['tab'] ?? 'profile';
                     uploadMessage.textContent = '上传失败，服务器错误: ' + xhr.status;
                 }
             });
-            
-            // 错误处理
             xhr.addEventListener('error', function() {
                 submitButton.disabled = false;
                 uploadMessage.style.color = 'red';
                 uploadMessage.textContent = '上传失败，请检查网络连接';
             });
-            
-            // 超时处理
             xhr.addEventListener('timeout', function() {
                 submitButton.disabled = false;
                 uploadMessage.style.color = 'red';
                 uploadMessage.textContent = '上传超时，请重试';
             });
-            
-            xhr.timeout = 30000; // 30秒超时
+            xhr.timeout = 30000;
             xhr.send(formData);
         });
-        // 主题切换功能 - 使用新的按钮
         document.getElementById('themeToggleHeader').addEventListener('click', function() {
             document.body.classList.toggle('dark-mode');
             this.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
-            
-            // 保存主题偏好到localStorage
             localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
         });
-        
-        // 页面加载时应用保存的主题
         document.addEventListener('DOMContentLoaded', function() {
             const savedTheme = localStorage.getItem('theme');
             const themeToggleHeader = document.getElementById('themeToggleHeader');
-            
             if (savedTheme === 'dark') {
                 document.body.classList.add('dark-mode');
                 themeToggleHeader.textContent = '☀️';
             } else {
                 themeToggleHeader.textContent = '🌙';
             }
-            
-            // 创建闪烁效果
             createSparkles();
         });
-        
-        // 创建闪烁效果
         function createSparkles() {
             const sparklesContainer = document.getElementById('sparkles');
             const sparkleCount = 30;
-            
             for (let i = 0; i < sparkleCount; i++) {
                 const sparkle = document.createElement('i');
                 sparkle.style.left = Math.random() * 100 + 'vw';

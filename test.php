@@ -37,7 +37,6 @@ $requirements = [
         'charset' => 'utf8mb4'
     ]
 ];
-
 $results = [
     'environment' => [],
     'hardware' => [],
@@ -48,7 +47,6 @@ $results = [
     'cache' => [],
     'database' => []
 ];
-
 function get_hardware_info() {
     $info = [
         'os' => '未知',
@@ -60,7 +58,6 @@ function get_hardware_info() {
         'disk_total' => '未知',
         'disk_free' => '未知'
     ];
-    
     $info['os'] = php_uname('s') . ' ' . php_uname('r') . ' ' . php_uname('m');
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
         $info = get_windows_hardware_info($info);
@@ -69,10 +66,8 @@ function get_hardware_info() {
     } else {
         $info = get_linux_hardware_info($info);
     }
-    
     return $info;
 }
-
 function get_windows_hardware_info($info) {
     if (function_exists('shell_exec') && is_callable('shell_exec')) {
         try {
@@ -93,11 +88,9 @@ function get_windows_hardware_info($info) {
             if ($memory && preg_match('/TotalPhysicalMemory=(\d+)/', $memory, $matches)) {
                 $info['memory_total'] = format_bytes($matches[1]);
             }
-            
         } catch (Exception $e) {
         }
     }
-    
     $disk_total = disk_total_space(".");
     $disk_free = disk_free_space(".");
     if ($disk_total !== false) {
@@ -106,10 +99,8 @@ function get_windows_hardware_info($info) {
     if ($disk_free !== false) {
         $info['disk_free'] = format_bytes($disk_free);
     }
-    
     return $info;
 }
-
 function get_macos_hardware_info($info) {
     if (function_exists('shell_exec') && is_callable('shell_exec')) {
         try {
@@ -129,11 +120,9 @@ function get_macos_hardware_info($info) {
             if ($memory) {
                 $info['memory_total'] = format_bytes(trim($memory));
             }
-            
         } catch (Exception $e) {
         }
     }
-
     $disk_total = disk_total_space(".");
     $disk_free = disk_free_space(".");
     if ($disk_total !== false) {
@@ -142,10 +131,8 @@ function get_macos_hardware_info($info) {
     if ($disk_free !== false) {
         $info['disk_free'] = format_bytes($disk_free);
     }
-    
     return $info;
 }
-
 function get_linux_hardware_info($info) {
     $canAccessProc = true;
     $openBasedir = ini_get('open_basedir');
@@ -159,7 +146,6 @@ function get_linux_hardware_info($info) {
             }
         }
     }
-
     if ($canAccessProc && file_exists('/proc/cpuinfo')) {
         $cpuinfo = file_get_contents('/proc/cpuinfo');
         if ($cpuinfo) {
@@ -171,7 +157,6 @@ function get_linux_hardware_info($info) {
             $physical_ids = [];
             $core_ids = [];
             $lines = explode("\n", $cpuinfo);
-            
             foreach ($lines as $line) {
                 if (preg_match('/physical id\s*:\s*(\d+)/', $line, $matches)) {
                     $physical_ids[$matches[1]] = true;
@@ -180,7 +165,6 @@ function get_linux_hardware_info($info) {
                     $core_ids[$matches[1]] = true;
                 }
             }
-            
             $info['cpu_physical_cores'] = count($core_ids) > 0 ? count($core_ids) : '无法识别';
             $info['cpu_cores'] = substr_count($cpuinfo, 'processor') > 0 ? substr_count($cpuinfo, 'processor') : '无法识别';
         } else {
@@ -203,7 +187,6 @@ function get_linux_hardware_info($info) {
     } else {
         $info['memory_total'] = '无权限识别';
     }
-    
     $disk_total = disk_total_space(".");
     $disk_free = disk_free_space(".");
     if ($disk_total !== false) {
@@ -216,20 +199,16 @@ function get_linux_hardware_info($info) {
     } else {
         $info['disk_free'] = '无法识别';
     }
-    
     return $info;
 }
-
 function format_bytes($bytes) {
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     $bytes = max($bytes, 0);
     $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
     $pow = min($pow, count($units) - 1);
     $bytes /= pow(1024, $pow);
-    
     return round($bytes, 2) . ' ' . $units[$pow];
 }
-
 function check_database_config() {
     $dbConfigPath = __DIR__ . '/include/Db.php';
     $results = [];
@@ -262,7 +241,6 @@ function check_database_config() {
             'suggestion' => '建议在 Db.php 中以 private $host = \'...\' 的形式配置主机地址'
         ];
     }
-
     if (preg_match('/private\s*\$db\s*=\s*\'([^\']*)\';/', $configContent, $matches)) {
         $db = $matches[1];
         $status = !empty($db) && $db !== '数据库名' ? 'success' : 'error';
@@ -280,7 +258,6 @@ function check_database_config() {
             'suggestion' => '建议在 Db.php 中以 private $db = \'...\' 的形式配置数据库名'
         ];
     }
-
     if (preg_match('/private\s*\$user\s*=\s*\'([^\']*)\';/', $configContent, $matches)) {
         $user = $matches[1];
         $status = !empty($user) && $user !== '数据库用户名' ? 'success' : 'error';
@@ -298,7 +275,6 @@ function check_database_config() {
             'suggestion' => '建议在 Db.php 中以 private $user = \'...\' 的形式配置用户名'
         ];
     }
-
     if (preg_match('/private\s*\$pass\s*=\s*\'([^\']*)\';/', $configContent, $matches)) {
         $pass = $matches[1];
         $status = ($pass !== '密码' && $pass !== null) ? 'success' : 'error';
@@ -316,7 +292,6 @@ function check_database_config() {
             'suggestion' => '建议在 Db.php 中以 private $pass = \'...\' 的形式配置密码'
         ];
     }
-
     if (preg_match('/private\s*\$charset\s*=\s*\'([^\']*)\';/', $configContent, $matches)) {
         $charset = $matches[1];
         $status = $charset === 'utf8mb4' ? 'success' : 'warning';
@@ -334,7 +309,6 @@ function check_database_config() {
             'suggestion' => '建议在 Db.php 中配置 charset 参数为 utf8mb4'
         ];
     }
-
     $dbConfig = [
         'host' => $host,
         'db' => $db,
@@ -342,10 +316,8 @@ function check_database_config() {
         'pass' => $pass,
         'charset' => $charset
     ];
-
     return ['results' => $results, 'config' => $dbConfig];
 }
-
 function test_database_connection($config) {
     $result = [
         'name' => '数据库连接测试',
@@ -353,14 +325,11 @@ function test_database_connection($config) {
         'value' => '连接失败',
         'suggestion' => '请检查数据库配置是否正确'
     ];
-
     if (empty($config['host']) || empty($config['db']) || empty($config['user'])) {
         $result['value'] = '缺少必要配置参数';
         return $result;
     }
-
     $conn = @new mysqli($config['host'], $config['user'], $config['pass'], $config['db']);
-
     if ($conn->connect_error) {
         $errorMsg = match ($conn->connect_errno) {
             1045 => '用户名或密码错误',
@@ -371,7 +340,6 @@ function test_database_connection($config) {
         $result['value'] = '连接失败: ' . $errorMsg;
         return $result;
     }
-
     $serverVersion = $conn->server_info;
     $requiredVersion = '5.6.0';
     if (version_compare($serverVersion, $requiredVersion, '<')) {
@@ -381,7 +349,6 @@ function test_database_connection($config) {
         $conn->close();
         return $result;
     }
-
     if (!empty($config['charset']) && $config['charset'] === 'utf8mb4') {
         if (!$conn->set_charset($config['charset'])) {
             $result['status'] = 'warning';
@@ -391,28 +358,24 @@ function test_database_connection($config) {
             return $result;
         }
     }
-
     $conn->close();
     $result['status'] = 'success';
     $result['value'] = '连接成功';
     $result['suggestion'] = '';  
     return $result;
 }
-
 $results['environment'][] = [
     'name' => 'PHP 运行状态',
     'status' => 'success',
     'value' => '正常运行',
     'suggestion' => ''
 ];
-
 $results['environment'][] = [
     'name' => '服务器软件',
     'status' => 'info',
     'value' => $_SERVER['SERVER_SOFTWARE'] ?? '未知',
     'suggestion' => ''
 ];
-
 $phpVersionCurrent = PHP_VERSION;
 $phpVersionCheck = version_compare($phpVersionCurrent, $requirements['php_version'], '>=');
 $results['environment'][] = [
@@ -421,23 +384,19 @@ $results['environment'][] = [
     'value' => $phpVersionCurrent . '（要求 ≥ ' . $requirements['php_version'] . '）',
     'suggestion' => $phpVersionCheck ? '' : '请升级PHP版本至' . $requirements['php_version'] . '或更高'
 ];
-
 $hardwareInfo = get_hardware_info();
-
 $results['hardware'][] = [
     'name' => '操作系统',
     'status' => 'info',
     'value' => $hardwareInfo['os'],
     'suggestion' => ''
 ];
-
 $results['hardware'][] = [
     'name' => 'CPU 型号',
     'status' => 'info',
     'value' => $hardwareInfo['cpu_model'],
     'suggestion' => '推荐：Intel Xeon E5-2673 v4 或更高性能CPU'
 ];
-
 $cpuPhysicalCores = $hardwareInfo['cpu_physical_cores'];
 $minPhysicalCores = 1;
 if ($cpuPhysicalCores === '未知' || $cpuPhysicalCores === '无权限识别') {
@@ -450,14 +409,12 @@ if ($cpuPhysicalCores === '未知' || $cpuPhysicalCores === '无权限识别') {
     $value = $cpuPhysicalCores . ' 核心（要求 ≥ ' . $minPhysicalCores . ' 核心）';
     $suggestion = $coreCheck ? '' : '物理CPU核心数不足，建议至少' . $minPhysicalCores . '个物理CPU';
 }
-
 $results['hardware'][] = [
     'name' => '物理CPU核心',
     'status' => $status,
     'value' => $value,
     'suggestion' => $suggestion
 ];
-
 $cpuCores = $hardwareInfo['cpu_cores'];
 if ($cpuCores === '无权限识别') {
     $results['hardware'][] = [
@@ -475,7 +432,6 @@ if ($cpuCores === '无权限识别') {
         'suggestion' => $cpuCoresCheck ? '' : 'CPU核心数不足，建议升级到至少' . $requirements['hardware']['cpu_cores']['min'] . '个逻辑核心'
     ];
 }
-
 $memoryTotal = $hardwareInfo['memory_total'];
 if ($memoryTotal !== '未知' && $memoryTotal !== '无权限识别') {
     $memoryBytes = return_bytes($memoryTotal);
@@ -502,7 +458,6 @@ if ($memoryTotal !== '未知' && $memoryTotal !== '无权限识别') {
         'suggestion' => '无法检测内存信息，请确保系统内存至少' . $requirements['hardware']['memory']['min']
     ];
 }
-
 if ($hardwareInfo['disk_total'] !== '未知') {
     $results['hardware'][] = [
         'name' => '磁盘总空间',
@@ -510,7 +465,6 @@ if ($hardwareInfo['disk_total'] !== '未知') {
         'value' => $hardwareInfo['disk_total'],
         'suggestion' => '根据使用量自行决定，建议预留充足空间'
     ];
-    
     if ($hardwareInfo['disk_free'] !== '未知') {
         $results['hardware'][] = [
             'name' => '磁盘可用空间',
@@ -527,7 +481,6 @@ if ($hardwareInfo['disk_total'] !== '未知') {
         'suggestion' => '无法检测磁盘信息，请确保有足够磁盘空间'
     ];
 }
-
 foreach ($requirements['extensions'] as $ext => $desc) {
     $loaded = extension_loaded($ext);
     $results['extensions'][] = [
@@ -537,13 +490,11 @@ foreach ($requirements['extensions'] as $ext => $desc) {
         'suggestion' => $loaded ? '' : '请安装并启用' . ucfirst($ext) . '扩展：' . $desc
     ];
 }
-
 foreach ($requirements['directories'] as $dir => $info) {
     $path = $info['path'];
     $exists = file_exists($path);
     $readable = $exists ? is_readable($path) : false;
     $writable = $exists ? is_writable($path) : false;
-    
     if (!$exists) {
         $status = 'error';
         $value = '目录不存在';
@@ -561,7 +512,6 @@ foreach ($requirements['directories'] as $dir => $info) {
         $value = '存在且权限正常';
         $suggestion = '';
     }
-    
     $results['directories'][] = [
         'name' => $info['desc'],
         'status' => $status,
@@ -569,7 +519,6 @@ foreach ($requirements['directories'] as $dir => $info) {
         'suggestion' => $suggestion
     ];
 }
-
 foreach ($requirements['php_settings'] as $setting => $info) {
     $current = ini_get($setting);
     if (in_array($setting, ['memory_limit', 'upload_max_filesize'])) {
@@ -584,7 +533,6 @@ foreach ($requirements['php_settings'] as $setting => $info) {
         $status = $currentVal >= $minVal ? 'success' : 'warning';
         $value = $current . '秒（要求 ≥ ' . $minVal . '秒）';
     }
-    
     $results['php_settings'][] = [
         'name' => ucwords(str_replace('_', ' ', $setting)),
         'status' => $status,
@@ -592,14 +540,12 @@ foreach ($requirements['php_settings'] as $setting => $info) {
         'suggestion' => $status == 'warning' ? '请在php.ini中调整' . $setting . '至' . $info['min'] . '或更高' : ''
     ];
 }
-
 $requiredFunctions = [
     'random_bytes' => '加密功能（下载链接加密必需）',
     'preg_replace_callback' => '短代码解析（必需）',
     'file_put_contents' => '文件写入（缓存和配置必需）',
     'session_start' => '会话管理（管理员登录必需）'
 ];
-
 foreach ($requiredFunctions as $func => $desc) {
     $exists = function_exists($func);
     $results['functions'][] = [
@@ -609,18 +555,15 @@ foreach ($requiredFunctions as $func => $desc) {
         'suggestion' => $exists ? '' : $desc . '，请确保PHP配置支持该函数'
     ];
 }
-
 $dbCheckResult = check_database_config();
 $dbConfigResults = $dbCheckResult['results'];
 $dbConfig = $dbCheckResult['config'];
 foreach ($dbConfigResults as $dbResult) {
     $results['database'][] = $dbResult;
 }
-
 if (extension_loaded('mysqli')) {
     $connectionTestResult = test_database_connection($dbConfig);
     $results['database'][] = $connectionTestResult;
-    
     $mysqliVersion = mysqli_get_client_info();
     $results['database'][] = [
         'name' => 'MySQL客户端版本',
@@ -636,7 +579,6 @@ if (extension_loaded('mysqli')) {
         'suggestion' => '请先安装并启用mysqli扩展'
     ];
 }
-
 if (extension_loaded('pdo_mysql')) {
     $pdoDrivers = PDO::getAvailableDrivers();
     if (in_array('mysql', $pdoDrivers)) {
@@ -648,11 +590,9 @@ if (extension_loaded('pdo_mysql')) {
         ];
     }
 }
-
 $cacheTestResult = '未测试';
 $cacheStatus = 'info';
 $cacheSuggestion = '';
-
 try {
     if (file_exists('cache/FileCache.php')) {
         require_once 'cache/FileCache.php';
@@ -680,19 +620,16 @@ try {
     $cacheStatus = 'error';
     $cacheSuggestion = '请检查缓存类实现或服务器环境';
 }
-
 $results['cache'][] = [
     'name' => '缓存功能测试',
     'status' => $cacheStatus,
     'value' => $cacheTestResult,
     'suggestion' => $cacheSuggestion
 ];
-
 function return_bytes($val) {
     $val = trim($val);
     $last = strtolower($val[strlen($val)-1]);
     $val = substr($val, 0, -1);
-    
     switch($last) {
         case 'g':
             $val *= 1024;
@@ -703,7 +640,6 @@ function return_bytes($val) {
     }
     return $val;
 }
-
 $hasError = false;
 foreach ($results as $category) {
     foreach ($category as $item) {
@@ -713,7 +649,6 @@ foreach ($results as $category) {
         }
     }
 }
-
 $overallStatus = $hasError ? 'error' : 'success';
 $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才能正常运行' : '服务器环境满足要求，可以正常运行';
 ?>
@@ -850,11 +785,9 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
 <body>
     <div class="container">
         <h1>KiraUI 环境检测</h1>
-        
         <div class="summary <?php echo $overallStatus; ?>">
             总体状态: <?php echo $overallMessage; ?>
         </div>
-
         <div class="category">
             <h2>基础环境信息</h2>
             <ul class="check-list">
@@ -874,7 +807,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>服务器硬件信息</h2>
             <ul class="check-list">
@@ -901,7 +833,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>PHP扩展支持</h2>
             <ul class="check-list">
@@ -927,7 +858,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>目录权限检测</h2>
             <ul class="check-list">
@@ -947,7 +877,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>PHP配置参数</h2>
             <ul class="check-list">
@@ -967,7 +896,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>数据库配置检测</h2>
             <ul class="check-list">
@@ -994,7 +922,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>关键函数支持</h2>
             <ul class="check-list">
@@ -1014,7 +941,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="category">
             <h2>缓存功能检测</h2>
             <ul class="check-list">
@@ -1041,7 +967,6 @@ $overallMessage = $hasError ? '服务器环境存在问题，需要修复后才�
                 <?php endforeach; ?>
             </ul>
         </div>
-
         <div class="suggestions-section">
             <h2>总结建议</h2>
             <?php if ($hasError): ?>

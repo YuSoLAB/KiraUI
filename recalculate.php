@@ -16,7 +16,6 @@ foreach ($files as $file) {
         echo "跳过无效文件: {$file}\n";
         continue;
     }
-
     $content = $article['content'] ?? '';
     preg_match_all('/[\x{4e00}-\x{9fa5}]/u', $content, $chineseMatches);
     $chineseCount = is_array($chineseMatches[0]) ? count($chineseMatches[0]) : 0;
@@ -34,7 +33,6 @@ foreach ($files as $file) {
         echo "更新失败: {$file}\n";
     }
 }
-
 require_once ROOT_DIR . '/cache/ArticleIndex.php';
 $articleIndex = new ArticleIndex();
 $articleIndex->buildIndex();

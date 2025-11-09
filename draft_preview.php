@@ -8,17 +8,14 @@ require_once ROOT_DIR . '/admin/admin_functions.php';
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
     die('没有权限访问此页面');
 }
-
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id <= 0) {
     die('无效的草稿ID');
 }
-
 $draft = loadDraftForEdit($id);
 if (empty($draft)) {
     die('草稿不存在');
 }
-
 function parse_shortcodes($content) {
     $content = preg_replace_callback(
         '/\[image url="(.*?)" alt="(.*?)"\]/',
@@ -36,7 +33,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-
     $content = preg_replace_callback(
         '/\[video url="(.*?)"\]/',
         function($matches) {
@@ -54,7 +50,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-
     $content = preg_replace_callback(
         '/\[code lang="(.*?)"\](.*?)\[\/code\]/s',
         function($matches) {
@@ -72,7 +67,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-
     $content = preg_replace_callback(
         '/\[link text="(.*?)" url="(.*?)"\]/',
         function($matches) {
@@ -98,7 +92,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-
     $content = preg_replace_callback(
         '/\[download text="(.*?)" url="(.*?)"\]/',
         function($matches) {
@@ -125,7 +118,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-    
     $content = preg_replace_callback(
         '/\[encrypted_download text="(.*?)" url="(.*?)"\]/',
         function($matches) {
@@ -136,7 +128,6 @@ function parse_shortcodes($content) {
             }
             $encrypt_id = bin2hex(random_bytes(16));
             $_SESSION['encrypted_downloads'][$encrypt_id] = $original_url;
-            
             return '<button class="btn encrypted-download-btn" 
                             style="margin: 5px 0; display: inline-flex;
                                     align-items: center; gap: 8px;
@@ -223,21 +214,17 @@ function parse_shortcodes($content) {
         <div class="preview-notice">
             ⚠️ 这是草稿预览，仅管理员可见，未发布到网站前端
         </div>
-        
         <h1 class="article-title"><?php echo htmlspecialchars($draft['title']); ?></h1>
-        
         <div class="article-meta">
             <span>日期: <?php echo $draft['date']; ?></span> |
             <span>字数: <?php echo $draft['word_count'] ?? 0; ?></span> |
             <span>阅读时间: <?php echo $draft['read_time'] ?? 5; ?> 分钟</span>
         </div>
-        
         <div class="article-tags">
             <?php foreach ($draft['tags'] as $tag): ?>
                 <span class="tag"><?php echo $tag; ?></span>
             <?php endforeach; ?>
         </div>
-        
         <div class="article-content">
             <?php echo parse_shortcodes($draft['content']); ?>
         </div>
@@ -249,7 +236,6 @@ function parse_shortcodes($content) {
                     const encryptId = this.getAttribute('data-encrypt-id');
                     this.disabled = true;
                     this.innerHTML = '处理中...';
-                    
                     try {
                         const response = await fetch('get_download_url.php', {
                             method: 'POST',

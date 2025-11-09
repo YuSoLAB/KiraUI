@@ -6,19 +6,16 @@ if (!defined('ROOT_DIR')) {
     define('ROOT_DIR', __DIR__);
 }
 $id = isset($_GET['id']) ? intval($_GET['id']) : 1;
-
 require_once __DIR__ . '/include/Config.php';
 require_once 'cache/ArticleIndex.php';
 require_once 'cache/FileCache.php';
 require_once ROOT_DIR . '/admin/comment_functions.php';
 $article = loadArticleFromCache($id);
-
 if ($article === false) {
     $article = loadDefaultArticle();
     $article['is_fallback'] = true;
 }
 $next_id = $id + 1;
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_comment'])) {
     $commentData = [
         'name' => $_POST['name'] ?? '',
@@ -26,13 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_comment'])) {
         'content' => $_POST['content'] ?? '',
         'parent_id' => $_POST['parent_id'] ?? '0'
     ];
-    
     $result = addNewComment($id, $commentData);
     $redirectUrl = "article.php?id={$id}&comment_msg=" . urlencode($result['message']);
     header("Location: {$redirectUrl}");
     exit;
 }
-
 $commentSettings = initCommentSettings();
 $commentsData = getArticleComments($id);
 $approvedComments = array_filter($commentsData['comments'], function($comment) {
@@ -51,7 +46,6 @@ if (file_exists($imgDir)) {
     }, $banners);
 }
 $randomBanner = $banners ? $banners[array_rand($banners)] : '';
-
 function loadArticleFromDb($id) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM articles WHERE id = ?");
@@ -63,7 +57,6 @@ function loadArticleFromDb($id) {
     }
     return false;
 }
-
 function loadArticleFromCache($id) {
     try {
         $cache = new FileCache('cache/data', 3600);
@@ -83,7 +76,6 @@ function loadArticleFromCache($id) {
         return loadArticleFromDb($id);
     }
 }
-
 function loadArticleFromFile($id) {
     $article_file = "articles/article_{$id}.php";    
     if (file_exists($article_file)) {
@@ -92,10 +84,8 @@ function loadArticleFromFile($id) {
             return $article;
         }
     }
-    
     return false;
 }
-
 function loadFallbackArticle($requested_id) {
     $files = @glob('articles/article_*.php');
     if ($files && count($files) > 0) {
@@ -107,10 +97,8 @@ function loadFallbackArticle($requested_id) {
             }
         }
     }
-    
     return false;
 }
-
 function loadDefaultArticle() {
     return [
         'id' => 1,
@@ -122,7 +110,6 @@ function loadDefaultArticle() {
         'is_default' => true
     ];
 }
-
 function parse_shortcodes($content) {
     if ($content === null) {
         $content = '';
@@ -134,7 +121,6 @@ function parse_shortcodes($content) {
             if (!preg_match('/^https?:\/\//i', $url)) {
                 $url = 'https://' . $url;
             }
-            
             return '<div style="margin: 15px 0; text-align: center;">
                         <img src="' . htmlspecialchars($url) . '" 
                             alt="' . htmlspecialchars($matches[2]) . '" 
@@ -144,7 +130,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-    
     $content = preg_replace_callback(
         '/\[video url="(.*?)"\]/',
         function($matches) {
@@ -152,7 +137,6 @@ function parse_shortcodes($content) {
             if (!preg_match('/^https?:\/\//i', $url)) {
                 $url = 'https://' . $url;
             }
-            
             return '<div style="margin: 15px 0;">
                         <video src="' . htmlspecialchars($url) . '" 
                             controls style="width: 100%; border-radius: 8px; 
@@ -163,7 +147,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-        
     $content = preg_replace_callback(
         '/\[code lang="(.*?)"\](.*?)\[\/code\]/s',
         function($matches) {
@@ -181,7 +164,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-    
     $content = preg_replace_callback(
         '/\[link text="(.*?)" url="(.*?)"\]/',
         function($matches) {
@@ -189,7 +171,6 @@ function parse_shortcodes($content) {
             if (!preg_match('/^https?:\/\//i', $url)) {
                 $url = 'https://' . $url;
             }
-            
             return '<a href="' . htmlspecialchars($url) . '" 
                     class="btn secondary" 
                     style="margin: 5px 0; display: inline-flex;
@@ -208,7 +189,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-    
     $content = preg_replace_callback(
         '/\[download text="(.*?)" url="(.*?)"\]/',
         function($matches) {
@@ -216,7 +196,6 @@ function parse_shortcodes($content) {
             if (!preg_match('/^https?:\/\//i', $url)) {
                 $url = 'https://' . $url;
             }
-            
             return '<a href="' . htmlspecialchars($url) . '" 
                     class="btn primary" 
                     style="margin: 5px 0; display: inline-flex;
@@ -236,7 +215,6 @@ function parse_shortcodes($content) {
         },
         $content
     );
-    
     $content = preg_replace_callback(
         '/\[encrypted_download text="(.*?)" url="(.*?)"\]/',
         function($matches) {
@@ -247,7 +225,6 @@ function parse_shortcodes($content) {
             }
             $encrypt_id = bin2hex(random_bytes(16));
             $_SESSION['encrypted_downloads'][$encrypt_id] = $original_url;
-            
             return '<button class="btn encrypted-download-btn" 
                             style="margin: 5px 0; display: inline-flex;
                                     align-items: center; gap: 8px;
@@ -290,7 +267,6 @@ $next_id = $id + 1;
             min-height: 100vh;
             position: relative;
         }
-
         body::before {
             content: '';
             position: fixed;
@@ -301,7 +277,6 @@ $next_id = $id + 1;
             background: rgba(245, 245, 247, 0);
             z-index: -1;
         }
-
         .navbar {
             position: fixed;
             top: 0;
@@ -313,7 +288,6 @@ $next_id = $id + 1;
             z-index: 1000;
             padding: 1rem 0;
         }
-
         .nav-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -322,18 +296,15 @@ $next_id = $id + 1;
             align-items: center;
             justify-content: space-between;
         }
-
         .nav-logo {
             display: flex;
             align-items: center;
             text-decoration: none;
         }
-
         .logo-img {
             height: 40px;
             width: auto;
         }
-
         .nav-menu {
             display: flex;
             gap: 2rem;
@@ -341,7 +312,6 @@ $next_id = $id + 1;
             margin: 0;
             padding: 0;
         }
-
         .nav-link {
             text-decoration: none;
             color: #333;
@@ -351,12 +321,10 @@ $next_id = $id + 1;
             transition: all 0.3s ease;
             position: relative;
         }
-
         .nav-link:hover {
             background: rgba(155, 140, 255, 0.1);
             color: #9b8cff;
         }
-
         .nav-link::after {
             content: '';
             position: absolute;
@@ -368,11 +336,9 @@ $next_id = $id + 1;
             transition: all 0.3s ease;
             transform: translateX(-50%);
         }
-
         .nav-link:hover::after {
             width: 80%;
         }
-
         .nav-toggle {
             display: none;
             flex-direction: column;
@@ -381,7 +347,6 @@ $next_id = $id + 1;
             border: none;
             background: none;
         }
-
         .nav-toggle span {
             width: 25px;
             height: 3px;
@@ -390,7 +355,6 @@ $next_id = $id + 1;
             transition: 0.3s;
             border-radius: 2px;
         }
-
         @media (max-width: 768px) {
             .nav-menu {
                 position: fixed;
@@ -408,68 +372,55 @@ $next_id = $id + 1;
                 padding: 1rem 0;
                 gap: 0;
             }
-
             .nav-menu.active {
                 right: 2rem;
             }
-
             .nav-link {
                 display: block;
                 padding: 1rem 2rem;
                 margin: 0.5rem 1rem;
                 border-radius: 8px;
             }
-
             .nav-toggle {
                 display: flex;
             }
-
             .nav-toggle.active span:nth-child(1) {
                 transform: rotate(-45deg) translate(-5px, 6px);
             }
-
             .nav-toggle.active span:nth-child(2) {
                 opacity: 0;
             }
-
             .nav-toggle.active span:nth-child(3) {
                 transform: rotate(45deg) translate(-5px, -6px);
             }
         }
-
         .wrap {
             margin-top: 80px;
         }
-
         @media (max-width: 768px) {
             .wrap {
                 margin-top: 70px;
             }
         }
-
         .comments-section {
             margin-top: 40px;
             padding-top: 20px;
             border-top: 1px solid #eee;
         }
-
         .comment-form {
             margin-bottom: 30px;
             padding: 20px;
             background: #f9f9f9;
             border-radius: 8px;
         }
-
         .form-group {
             margin-bottom: 15px;
         }
-
         .form-group label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
         }
-
         .form-group input, .form-group textarea {
             width: 100%;
             padding: 8px 12px;
@@ -477,19 +428,16 @@ $next_id = $id + 1;
             border-radius: 4px;
             box-sizing: border-box;
         }
-
         .comment-item {
             padding: 15px;
             border-bottom: 1px solid #eee;
             margin-bottom: 15px;
         }
-
         .comment-header {
             display: flex;
             align-items: center;
             margin-bottom: 10px;
         }
-
         .comment-avatar {
             width: 40px;
             height: 40px;
@@ -497,30 +445,24 @@ $next_id = $id + 1;
             margin-right: 10px;
             object-fit: cover;
         }
-
         .comment-name {
             font-weight: bold;
             margin-right: 10px;
         }
-
         .comment-date {
             color: #666;
             font-size: 0.9em;
         }
-
         .comment-content {
             margin-bottom: 10px;
         }
-
         .comment-actions {
             font-size: 0.9em;
         }
-
         .comment-actions a {
             color: #6c5dfb;
             text-decoration: none;
         }
-
         .comment-message {
             padding: 10px;
             margin-bottom: 15px;
@@ -528,81 +470,65 @@ $next_id = $id + 1;
             background: #e3f2fd;
             color: #0d47a1;
         }
-
         body.dark-mode .comments-section {
             border-top-color: var(--dark-admin-border);
         }
-
         body.dark-mode .comment-form {
             background: var(--dark-admin-card);
             border: 1px solid var(--dark-admin-border);
         }
-
         body.dark-mode .form-group label {
             color: var(--dark-text);
         }
-
         body.dark-mode .form-group input,
         body.dark-mode .form-group textarea {
             background: #2a2a42aa;
             border-color: var(--dark-admin-border);
             color: var(--dark-text);
         }
-
         body.dark-mode .comment-item {
             border-bottom-color: var(--dark-admin-border);
         }
-
         body.dark-mode .comment-date {
             color: var(--dark-sub);
         }
-
         body.dark-mode .comment-content {
             color: var(--dark-text);
         }
-
         body.dark-mode .comment-actions a {
             color: var(--dark-vio);
         }
-
         body.dark-mode .comment-actions a:hover {
             color: var(--dark-pink);
         }
-
         body.dark-mode .replies {
             border-left: 1px solid var(--dark-admin-border);
         }
-
         body.dark-mode .comment-message {
             background: #3d2c00;
             color: #ffd27a;
         }
-
         .comment-reply-to {
             color: #ff4db1;
             font-weight: bold;
             display: inline-block;
             margin-right: 5px;
         }
-
         .replies {
             margin-left: 40px;
             margin-top: 15px;
             padding-left: 10px;
             border-left: 2px solid #e0e0e0;
         }
-
         .comment-item.reply-comment {
             margin-left: 0 !important;
             padding-left: 0 !important;
         }
-
         .comment-content {
             margin-bottom: 10px;
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
-
         .comment-login-prompt {
             padding: 20px;
             background: #f9f9f9;
@@ -610,20 +536,16 @@ $next_id = $id + 1;
             text-align: center;
             margin-bottom: 30px;
         }
-
         .comment-login-prompt p {
             margin-bottom: 15px;
             font-size: 1.1em;
         }
-
         body.dark-mode .comment-login-prompt {
             background: var(--dark-admin-card);
         }
-
         body.dark-mode .replies {
             border-left-color: var(--dark-admin-border);
         }
-
         body.dark-mode .comment-reply-to {
             color: #ff66b3;
         }
@@ -632,7 +554,6 @@ $next_id = $id + 1;
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <!-- Logo 部分 -->
             <a href="index.php" class="nav-logo">
                 <?php if (file_exists($imgDir . 'logo.ico')): ?>
                     <img src="img/logo.ico" alt="Logo" class="logo-img">
@@ -640,21 +561,14 @@ $next_id = $id + 1;
                     <img src="logo.ico" alt="YuSoLAB" class="logo-img">
                 <?php endif; ?>
             </a>
-            
-            <!-- 导航菜单 -->
             <ul class="nav-menu">
                 <li><a href="index.php" class="nav-link">首页</a></li>
                 <li><a href="index.php" class="nav-link">文章</a></li>
                 <li><a href="#" class="nav-link">关于</a></li>
                 <li><a href="#" class="nav-link">联系</a></li>
             </ul>
-            
-            <!-- 右侧操作区域 -->
             <div class="nav-right">
-                <!-- 主题切换 -->
                 <button id="themeToggle" class="theme-toggle">🌙</button>
-                
-                <!-- 用户认证区域 -->
                 <div class="user-auth">
                     <?php
                     if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) {
@@ -667,8 +581,6 @@ $next_id = $id + 1;
                     ?>
                 </div>
             </div>
-            
-            <!-- 移动端菜单按钮 -->
             <button class="nav-toggle" id="navToggle">
                 <span></span>
                 <span></span>
@@ -677,32 +589,26 @@ $next_id = $id + 1;
         </div>
     </nav>
     <div class="sparkles" id="sparkles" aria-hidden="true"></div>
-
     <div class="wrap">
         <main class="card" role="main">
             <a href="index.php" class="back-link">← 返回首页</a>
-            
             <div class="header">
                 <span class="badge">📖 文章详情</span>
                 <h1 class="title"><?php echo $article['title'] ?? '文章未找到'; ?></h1>
             </div>
-
             <div class="article-meta">
                 <span>发布日期: <?php echo $article['date'] ?? '未知'; ?></span>
                 <span>字数: <?php echo $article['word_count'] ?? 0; ?></span>
                 <span>阅读时间: <?php echo $article['read_time'] ?? 5; ?> 分钟</span>
             </div>
-
             <div class="article-tags">
                 <?php foreach (($article['tags'] ?? []) as $tag): ?>
                     <span class="tag"><?php echo $tag; ?></span>
                 <?php endforeach; ?>
             </div>
-
             <div class="article-content">
                 <?php echo parse_shortcodes($article['content'] ?? '<p>文章内容加载失败。</p>'); ?>
             </div>
-            
             <div class="actions">
                 <a href="index.php" class="btn primary">返回首页</a>
                 <?php
@@ -721,32 +627,24 @@ $next_id = $id + 1;
             ?>
             <div class="comments-section">
                 <h3>评论区</h3>
-                
                 <?php 
                 if (isset($_GET['comment_msg'])): 
                     $commentMessage = urldecode($_GET['comment_msg']);
                 ?>
                     <div class="comment-message"><?php echo $commentMessage; ?></div>
                 <?php endif; ?>
-                
                 <?php
-                // 检查是否允许评论
                 if ($commentSettings['allow_guest_comments'] || $isLoggedIn) {
-                    // 显示评论表单
                 ?>
-
                 <div class="comment-form">
                     <form method="post" id="commentForm">
                         <input type="hidden" name="parent_id" id="parent_id" value="0">
                         <?php
-                        // 检查用户是否登录
                         if (session_status() == PHP_SESSION_NONE) {
                             session_start();
                         }
                         $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
-                        
                         if ($isLoggedIn) {
-                            // 从会话中获取用户信息
                             $userNickname = htmlspecialchars($_SESSION['user']['nickname']);
                             $userEmail = htmlspecialchars($_SESSION['user']['email']);
                             echo '<input type="hidden" name="name" value="' . $userNickname . '">';
@@ -757,24 +655,20 @@ $next_id = $id + 1;
                             <label for="name">昵称 *</label>
                             <input type="text" id="name" name="name" required>
                         </div>
-                        
                         <div class="form-group">
                             <label for="email">邮箱 *</label>
                             <input type="email" id="email" name="email" required>
                         </div>
                         <?php } ?>
-                        
                         <div class="form-group">
                             <label for="content">评论内容 *</label>
                             <textarea id="content" name="content" rows="4" required></textarea>
                         </div>
-                        
                         <button type="submit" name="submit_comment" class="btn primary">提交评论</button>
                     </form>
                 </div>
             <?php
             } else {
-                // 不允许游客评论且用户未登录，显示登录提示
                 echo '<div class="comment-login-prompt">';
                 echo '<p>请先登录后再发表评论</p>';
                 echo '<a href="login" class="btn primary">登录</a>';
@@ -802,7 +696,6 @@ $next_id = $id + 1;
                                 <?php 
                                 $content = $reply['content'];
                                 $parentComment = getParentComment($reply['parent_id']);
-                                
                                 if ($parentComment) {
                                     echo '<span class="comment-reply-to">@' . $parentComment['name'] . '</span> ';
                                 }                                                               
@@ -816,13 +709,11 @@ $next_id = $id + 1;
                             </div>
                         </div>
                         <?php
-                        
                         if (!empty($reply['replies'])) {
                             render_flat_replies($reply['replies']);
                         }
                     }
                 }
-
                 function display_comment_thread($comment) {
                     ?>
                     <div class="comment-item" id="comment_<?php echo $comment['id']; ?>">
@@ -844,7 +735,6 @@ $next_id = $id + 1;
                         </div>
                     </div>
                     <?php
-
                     if (!empty($comment['replies'])) {
                         echo '<div class="replies">';
                         render_flat_replies($comment['replies']);
@@ -865,7 +755,6 @@ $next_id = $id + 1;
             <?php endif; ?>
         </main>
     </div>
-
     <script>
         const navToggle = document.getElementById('navToggle');
         const navMenu = document.querySelector('.nav-menu');
@@ -879,7 +768,6 @@ $next_id = $id + 1;
                 navToggle.classList.remove('active');
             });
         });
-
         (function(){
             var box = document.getElementById('sparkles');
             var count = 60;
@@ -895,35 +783,29 @@ $next_id = $id + 1;
                 s.style.opacity = .4 + Math.random()*.6;
                 box.appendChild(s);
             }
-            
             if(vw < 480){
                 var kids = box.querySelectorAll('i');
                 for (var j=0;j<kids.length;j+=2){ kids[j].remove(); }
             }
         })();
-
         document.addEventListener('DOMContentLoaded', function() {
             const bannerImages = <?php echo json_encode($banners); ?>;            
             const randomIndex = Math.floor(Math.random() * bannerImages.length);
             const selectedImage = bannerImages[randomIndex];        
             const img = new Image();
             img.src = selectedImage;
-            
             img.onload = function() {
                 document.body.style.backgroundImage = `url('${selectedImage}')`;
             };
-            
             img.onerror = function() {
                 document.body.style.backgroundImage = 'url("img/default-banner.png")';
             };
         });
-
         document.querySelectorAll('.encrypted-download-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const encryptId = this.getAttribute('data-encrypt-id');
                 this.disabled = true;
                 this.innerHTML = '处理中...';
-                
                 try {
                     const response = await fetch('get_download_url.php', {
                         method: 'POST',
@@ -958,7 +840,6 @@ $next_id = $id + 1;
                 }
             });
         });
-
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.reply-link').forEach(link => {
                 link.addEventListener('click', function(e) {
@@ -973,12 +854,10 @@ $next_id = $id + 1;
                         contentField.focus();
                         contentField.setSelectionRange(commentName.length + 2, commentName.length + 2);
                     }
-                    
                     document.getElementById('parent_id').value = commentId;
                     document.getElementById('content').focus();
                 });
             });
-            
             document.getElementById('commentForm').addEventListener('submit', function(e) {
                 const parentId = document.getElementById('parent_id').value;
                 if (parentId && parentId !== '0') {
@@ -994,7 +873,6 @@ $next_id = $id + 1;
                 }
             });
         });
-
         document.addEventListener('DOMContentLoaded', function() {
             const themeToggle = document.getElementById('themeToggle');
             if (localStorage.getItem('theme') === 'dark' || 
@@ -1005,7 +883,6 @@ $next_id = $id + 1;
                 document.body.classList.remove('dark-mode');
                 themeToggle.textContent = '🌙';
             }
-            
             themeToggle.addEventListener('click', function() {
                 if (document.body.classList.contains('dark-mode')) {
                     document.body.classList.remove('dark-mode');
