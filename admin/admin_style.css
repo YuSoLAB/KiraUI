@@ -603,11 +603,11 @@ body.dark-mode .email-management .comment-item .comment-avatar {
     border: 1px solid rgba(176, 160, 255, 0.3) !important;
 }
 .section-description {
-    margin: 0 0 10px 0 !important;
+    margin: 0 0 10px 0 !important; 
     padding: 0;
 }
 .message {
-    margin: 0 0 15px 0;
+    margin: 0 0 15px 0; 
 }
 .message:empty {
     display: none;

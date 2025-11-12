@@ -271,7 +271,7 @@ function checkUserStatus($userId) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT status, status_expires_at FROM users WHERE id = ?");
     $stmt->execute([$userId]);
-    $user = $stmt->fetch();    
+    $user = $stmt->fetch();
     if (!$user) return false;
     if ($user['status'] !== 'normal' && $user['status_expires_at'] && strtotime($user['status_expires_at']) < time()) {
         $stmt = $db->prepare("UPDATE users SET status = 'normal', status_expires_at = NULL WHERE id = ?");

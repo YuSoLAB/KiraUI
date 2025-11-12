@@ -39,6 +39,8 @@
         data-tab="smtp" data-url="?page=smtp">SMTP管理</div>
     <div class="tab <?php echo $currentPage === 'users' ? 'active' : ''; ?>" 
         data-tab="users" data-url="?page=users">用户管理</div>
+    <div class="tab <?php echo $currentPage === 'landing' ? 'active' : ''; ?>" 
+        data-tab="landing" data-url="?page=landing">展示页面管理</div>
     <div class="tab <?php echo $currentPage === 'update' ? 'active' : ''; ?>" 
         data-tab="update" data-url="?page=update">系统更新</div>
 </div>

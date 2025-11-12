@@ -319,6 +319,9 @@ if ($isLoggedIn) {
                 <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
                     <?php include 'admin_users.php'; ?>
                 </div>
+                <div id="landing-content" class="tab-pane <?php echo $currentPage === 'landing' ? 'active' : ''; ?>">
+                    <?php include 'admin_landing.php'; ?>
+                </div>
                 <div id="update-content" class="tab-pane <?php echo $currentPage === 'update' ? 'active' : ''; ?>">
                     <?php include 'admin_update.php'; ?>
                 </div>

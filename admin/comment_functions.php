@@ -32,7 +32,7 @@ function initCommentSettings() {
         'blocked_domains' => [],
         'default_moderation' => 'strict',
         'enable_comments' => true,
-        'allow_guest_comments' => true,
+        'allow_guest_comments' => true, 
     ];
     $db = Db::getInstance();
     try {
@@ -47,7 +47,7 @@ function initCommentSettings() {
                 'blocked_domains' => $blockedDomains,
                 'default_moderation' => $saved['default_moderation'],
                 'enable_comments' => (bool)$saved['enable_comments'],
-                'allow_guest_comments' => isset($saved['allow_guest_comments']) ? (bool)$saved['allow_guest_comments'] : true, // 从数据库读取并添加默认值
+                'allow_guest_comments' => isset($saved['allow_guest_comments']) ? (bool)$saved['allow_guest_comments'] : true, 
             ];
         }
     } catch (PDOException $e) {
@@ -127,13 +127,13 @@ function saveCommentSettings($settings) {
             $blockedDomains,
             $settings['default_moderation'] ?? 'strict',
             $settings['enable_comments'] ? 1 : 0,
-            $settings['allow_guest_comments'] ? 1 : 0,
+            $settings['allow_guest_comments'] ? 1 : 0, 
             $settings['email_mode'] ?? 'all',
             $allowedDomains,
             $blockedDomains,
             $settings['default_moderation'] ?? 'strict',
             $settings['enable_comments'] ? 1 : 0,
-            $settings['allow_guest_comments'] ? 1 : 0
+            $settings['allow_guest_comments'] ? 1 : 0 
         ];
         $stmt->execute($values);
         return true;
@@ -206,7 +206,7 @@ function addNewComment($articleId, $data) {
     }
     $db = Db::getInstance();
     $emailHash = md5(strtolower(trim($email)));
-    $name = htmlspecialchars($name); 
+    $name = htmlspecialchars($name);  
     $content = nl2br(htmlspecialchars($data['content'] ?? ''));
     $parentId = empty($data['parent_id']) || $data['parent_id'] == '0' ? null : $data['parent_id'];
     $needsModeration = true; 

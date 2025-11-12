@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('无法解析 tab URL:', url);
             }
             document.querySelectorAll('.tab-pane').forEach(pane => {
-                const paneId = pane.id.replace('-content', '').replace(/-/g, '_');              
+                const paneId = pane.id.replace('-content', '').replace(/-/g, '_');
                 if (paneId === currentPage) {
                     pane.classList.add('active');
                 }
