@@ -81,7 +81,7 @@ document.getElementById('send_code').addEventListener('click', function() {
         return;
     }
     sendBtn.disabled = true;
-    sendBtn.textContent = '发送中...';
+    sendBtn.textContent = '发送中...';  
     fetch('send_verify_code.php', {
         method: 'POST',
         headers: {
@@ -95,7 +95,7 @@ document.getElementById('send_code').addEventListener('click', function() {
             alert('验证码已发送，请查收');
             document.getElementById('verifyCodeHint').style.display = 'block';
             let countdown = 60;
-            sendBtn.textContent = `重新发送(${countdown})`;
+            sendBtn.textContent = `重新发送(${countdown})`;  
             const timer = setInterval(() => {
                 countdown--;
                 sendBtn.textContent = `重新发送(${countdown})`;

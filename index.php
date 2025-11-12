@@ -5,6 +5,11 @@ require_once 'cache/ArticleIndex.php';
 $articleIndex = new ArticleIndex();
 $articles = $articleIndex->getIndex();
 $config = Config::getInstance();
+$landingEnabled = $config->get('landing_enabled', '0') === '1';
+if ($config->get('landing_enabled', '0') === '1') {
+    echo $config->get('landing_code', '');
+    exit;
+}
 $badgeText = $config->get('badge_text', '📝 YuSoLAB');
 $siteTitle = $config->get('site_title', '测试网站');
 $welcomeText = $config->get('welcome_text', '这是一个网站');
@@ -338,7 +343,7 @@ $paginated_articles = array_slice($filtered_articles, $offset, $per_page);
             closeAnnouncement();
         });
         document.getElementById('hide-long').addEventListener('click', function() {
-            setCookie('<?php echo $cookieNameLong; ?>', '1', 1440); // 24*60=1440分钟
+            setCookie('<?php echo $cookieNameLong; ?>', '1', 1440); 
             closeAnnouncement();
         });
         document.getElementById('announcement-overlay').addEventListener('click', function(e) {

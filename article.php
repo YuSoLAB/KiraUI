@@ -634,17 +634,21 @@ $next_id = $id + 1;
                     <div class="comment-message"><?php echo $commentMessage; ?></div>
                 <?php endif; ?>
                 <?php
+                // 检查是否允许评论
                 if ($commentSettings['allow_guest_comments'] || $isLoggedIn) {
+                    // 显示评论表单
                 ?>
                 <div class="comment-form">
                     <form method="post" id="commentForm">
                         <input type="hidden" name="parent_id" id="parent_id" value="0">
                         <?php
+                        // 检查用户是否登录
                         if (session_status() == PHP_SESSION_NONE) {
                             session_start();
                         }
                         $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
                         if ($isLoggedIn) {
+                            // 从会话中获取用户信息
                             $userNickname = htmlspecialchars($_SESSION['user']['nickname']);
                             $userEmail = htmlspecialchars($_SESSION['user']['email']);
                             echo '<input type="hidden" name="name" value="' . $userNickname . '">';
@@ -669,6 +673,7 @@ $next_id = $id + 1;
                 </div>
             <?php
             } else {
+                // 不允许游客评论且用户未登录，显示登录提示
                 echo '<div class="comment-login-prompt">';
                 echo '<p>请先登录后再发表评论</p>';
                 echo '<a href="login" class="btn primary">登录</a>';

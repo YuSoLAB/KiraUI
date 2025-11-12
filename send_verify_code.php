@@ -3,7 +3,7 @@ session_start();
 require_once 'include/Db.php';
 require_once 'include/Mailer.php';
 require_once 'include/Config.php';
-require_once 'admin/admin_functions.php';
+require_once 'admin/admin_functions.php';  
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => '方法不允许']);

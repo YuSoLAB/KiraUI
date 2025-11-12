@@ -20,11 +20,11 @@ $message = '';
 $error = '';
 if (isset($_SESSION['message'])) {
     $message = $_SESSION['message'];
-    unset($_SESSION['message']);
+    unset($_SESSION['message']); 
 }
 if (isset($_SESSION['error'])) {
     $error = $_SESSION['error'];
-    unset($_SESSION['error']);
+    unset($_SESSION['error']); 
 }
 $user = $_SESSION['user'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['error'] = '您的账号已被封禁，无法修改个人信息';
             $tab = $_POST['active_tab'] ?? 'profile';
             header("Location: user_center.php?tab=$tab");
-            exit;
+            exit; 
         }
         $newNickname = trim($_POST['nickname']);
         if (!empty($newNickname) && strlen($newNickname) <= 50) {
@@ -48,9 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $_SESSION['error'] = '请输入有效的昵称（不超过50个字符）';
         }
-        $tab = $_POST['active_tab'] ?? 'profile';
+        $tab = $_POST['active_tab'] ?? 'profile'; 
         header("Location: user_center.php?tab=$tab");
-        exit;
+        exit; 
     }
     if (isset($_POST['action']) && $_POST['action'] === 'update_password') {
         $newPassword = $_POST['new_password'];
@@ -68,9 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = '密码更新失败';
             }
         }
-        $tab = $_POST['active_tab'] ?? 'profile';
+        $tab = $_POST['active_tab'] ?? 'profile'; 
         header("Location: user_center.php?tab=$tab");
-        exit;
+        exit; 
     }
     if (isset($_POST['action']) && $_POST['action'] === 'upload_avatar') {
         if ($isBanned) {
@@ -176,9 +176,9 @@ $_SESSION['user'] = $user;
 if (!empty($user['avatar'])) {
     $avatarUrl = 'uploads/avatars/' . $user['avatar'];
 } elseif (preg_match('/^(\d+)@(qq\.com|vip\.qq\.com)$/', $user['email'], $matches)) {
-    $avatarUrl = 'https:
+    $avatarUrl = 'https://q1.qlogo.cn/g?b=qq&nk=' . $matches[1] . '&s=640';
 } else {
-    $avatarUrl = 'https:
+    $avatarUrl = 'https://via.placeholder.com/120?text=' . urlencode(substr($user['nickname'], 0, 1));
 }
 $activeTab = $_GET['tab'] ?? 'profile';
 ?>
@@ -717,6 +717,7 @@ $activeTab = $_GET['tab'] ?? 'profile';
             const avatarPreview = document.getElementById('avatarPreview');
             const currentAvatar = document.getElementById('currentAvatar');
             if (file) {
+                // 验证文件类型和大小
                 const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
                 const maxSize = 2 * 1024 * 1024; 
                 if (!validTypes.includes(file.type)) {
@@ -762,7 +763,7 @@ $activeTab = $_GET['tab'] ?? 'profile';
             uploadProgress.style.display = 'block';
             progressBar.style.width = '0%';
             uploadMessage.textContent = '准备上传...';
-            uploadMessage.style.color = '#666';
+            uploadMessage.style.color = '
             submitButton.disabled = true;
             const xhr = new XMLHttpRequest();
             xhr.open('POST', 'user_center.php', true);
@@ -817,7 +818,7 @@ $activeTab = $_GET['tab'] ?? 'profile';
                 uploadMessage.style.color = 'red';
                 uploadMessage.textContent = '上传超时，请重试';
             });
-            xhr.timeout = 30000;
+            xhr.timeout = 30000; 
             xhr.send(formData);
         });
         document.getElementById('themeToggleHeader').addEventListener('click', function() {

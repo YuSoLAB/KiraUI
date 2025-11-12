@@ -38,7 +38,7 @@ try {
     $stmt = $db->prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     $stmt->execute([$passwordHash, $resetData['user_id']]);
     $stmt = $db->prepare("DELETE FROM password_reset WHERE token = ?");
-    $stmt->execute([$token]);    
+    $stmt->execute([$token]);
     $_SESSION['reset_success'] = '密码已成功重置，请使用新密码登录';
     header('Location: reset_password.php?token=' . urlencode($token));
     exit;
