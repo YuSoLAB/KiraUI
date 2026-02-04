@@ -48,12 +48,22 @@ try {
         $token = bin2hex(random_bytes(32));
         $expires = time() + (30 * 24 * 60 * 60); // 30天
         
-        // 保存记住我令牌到数据库
-        $stmt = $db->prepare("INSERT INTO remember_tokens (user_id, token, expires_at) VALUES (?, ?, ?)");
-        $stmt->execute([$user['id'], $token, date('Y-m-d H:i:s', $expires)]);
-        
-        // 设置记住我Cookie
-        setcookie('remember_me', $token, $expires, '/', '', false, true);
+        try {
+            $stmt = $db->prepare("DELETE FROM remember_tokens WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+            $stmt = $db->prepare("INSERT INTO remember_tokens (user_id, token, expires_at) VALUES (?, ?, ?)");
+            $result = $stmt->execute([$user['id'], $token, date('Y-m-d H:i:s', $expires)]);
+            
+            if ($result) {
+                // 设置记住我Cookie
+                setcookie('remember_me', $token, $expires, '/', '', false, true);
+                error_log("记住我令牌已成功保存: 用户ID={$user['id']}, 令牌={$token}");
+            } else {
+                error_log("记住我令牌保存失败: 用户ID={$user['id']}");
+            }
+        } catch (PDOException $e) {
+            error_log("记住我令牌数据库错误: " . $e->getMessage());
+        }
     }
     header('Location: index.php');
     exit;

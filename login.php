@@ -30,7 +30,7 @@
                     <input type="password" id="password" name="password" required>
                     <div class="form-options">
                         <div class="remember-me">
-                            <input type="checkbox" id="remember" name="remember" value="1">
+                            <input type="checkbox" id="remember" name="remember_me" value="on">
                             <label for="remember">记住我</label>
                         </div>
                         <div class="form-hint-right">
