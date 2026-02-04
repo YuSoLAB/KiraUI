@@ -10,6 +10,7 @@ function autoLogin() {
     
     if (isset($_COOKIE['remember_me'])) {
         $token = $_COOKIE['remember_me'];
+        error_log("自动登录尝试: 令牌存在，长度=" . strlen($token));
         
         try {
             $db = Db::getInstance();
@@ -23,6 +24,7 @@ function autoLogin() {
             $tokenData = $stmt->fetch();
             
             if ($tokenData) {
+                error_log("自动登录成功: 用户ID={$tokenData['id']}, 用户名={$tokenData['username']}");
                 // 检查用户状态
                 $status = checkUserStatus($tokenData['user_id']);
                 if ($status == 'frozen' || $status == 'banned') {
