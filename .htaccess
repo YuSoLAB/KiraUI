@@ -1,0 +1,27 @@
+RewriteEngine On
+RewriteBase /
+# 无论浏览器请求哪个目录下的 favicon.ico，都指向根目录的 img/logo.ico
+RewriteRule ^favicon\.ico$ /img/logo.ico [L]
+# 如果子目录请求也想拦截
+RewriteRule ^.*/favicon\.ico$ /img/logo.ico [L]
+# 处理index.php重定向（仅GET请求）
+RewriteCond %{REQUEST_METHOD} GET
+RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /index\.php(\?[^\s]*)?\s
+RewriteRule ^index\.php$ / [R=301,L]
+
+# 处理其他.php文件重定向（仅GET请求）
+RewriteCond %{REQUEST_METHOD} GET
+RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /([^/]+)\.php(\?[^\s]+)?\s
+RewriteCond %1 !^index$
+RewriteCond %1 !^get_download_url$
+RewriteRule ^([^/]+)\.php$ /$1 [R=301,L,QSA]
+
+# 处理无后缀URL到.php文件的内部重写
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# 处理前端控制器规则
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
