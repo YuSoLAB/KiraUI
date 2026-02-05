@@ -1,5 +1,5 @@
 <?php
-// 初始化检查
+// 初始化检查，更新测试注释
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -279,52 +279,61 @@ if ($isLoggedIn) {
         <?php elseif (!$isLoggedIn): ?>
             <?php include 'admin_login.php'; ?>
         <?php else: ?>
-            <?php include 'admin_header.php'; ?>            
-            <?php if ($message): ?>
-                <div class="message"><?php echo $message; ?></div>
-            <?php endif; ?>            
-            <?php include 'admin_tabs.php'; ?>
-            <div class="tab-contents">
-                <div id="siteinfo-content" class="tab-pane <?php echo $currentPage === 'siteinfo' ? 'active' : ''; ?>">
-                    <?php include 'admin_siteinfo.php'; ?>
-                </div>
-                <div id="cache-content" class="tab-pane <?php echo $currentPage === 'cache' ? 'active' : ''; ?>">
-                    <?php include 'admin_cache.php'; ?>
-                </div>
-                <div id="articles-content" class="tab-pane <?php echo $currentPage === 'articles' ? 'active' : ''; ?>">
-                    <?php include 'admin_articles.php'; ?>
-                </div>
-                <div id="drafts-content" class="tab-pane <?php echo $currentPage === 'drafts' ? 'active' : ''; ?>">
-                    <?php include 'admin_drafts.php'; ?>
-                </div>
-                <?php if (isset($currentDraft)): ?>
-                <div id="edit-draft-content" class="tab-pane <?php echo $currentPage === 'edit_draft' ? 'active' : ''; ?>">
-                    <?php include 'admin_edit_draft.php'; ?>
-                </div>
-                <?php endif; ?>
-                <?php if (isset($currentArticle)): ?>
-                <div id="edit-article-content" class="tab-pane <?php echo $currentPage === 'edit_article' ? 'active' : ''; ?>">
-                    <?php include 'admin_edit_article.php'; ?>
-                </div>
-                <?php endif; ?>
-                <div id="footer-content" class="tab-pane <?php echo $currentPage === 'footer' ? 'active' : ''; ?>">
-                    <?php include 'admin_footer.php'; ?>
-                </div>
-                <div id="announcement-content" class="tab-pane <?php echo $currentPage === 'announcement' ? 'active' : ''; ?>">
-                    <?php include 'admin_announcement.php'; ?>
-                </div>
-                <div id="comments-content" class="tab-pane <?php echo $currentPage === 'comments' ? 'active' : ''; ?>">
-                    <?php include 'admin_comments.php'; ?>
-                </div>
-                <div id="smtp-content" class="tab-pane <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>">
-                    <?php include 'admin_smtp.php'; ?>
-                </div>
-                <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
-                    <?php include 'admin_users.php'; ?>
-                </div>
-                <div id="landing-content" class="tab-pane <?php echo $currentPage === 'landing' ? 'active' : ''; ?>">
-                    <?php include 'admin_landing.php'; ?>
-                </div>
+            <?php include 'admin_header.php'; ?>
+            <div class="admin-layout">
+                <aside class="admin-sidebar">
+                    <?php include 'admin_tabs.php'; ?>
+                </aside>
+                <main class="admin-main">
+                    <?php if ($message): ?>
+                        <div class="message"><?php echo $message; ?></div>
+                    <?php endif; ?>
+                    <div class="tab-contents">
+                        <div id="siteinfo-content" class="tab-pane <?php echo $currentPage === 'siteinfo' ? 'active' : ''; ?>">
+                            <?php include 'admin_siteinfo.php'; ?>
+                        </div>
+                        <div id="cache-content" class="tab-pane <?php echo $currentPage === 'cache' ? 'active' : ''; ?>">
+                            <?php include 'admin_cache.php'; ?>
+                        </div>
+                        <div id="articles-content" class="tab-pane <?php echo $currentPage === 'articles' ? 'active' : ''; ?>">
+                            <?php include 'admin_articles.php'; ?>
+                        </div>
+                        <div id="drafts-content" class="tab-pane <?php echo $currentPage === 'drafts' ? 'active' : ''; ?>">
+                            <?php include 'admin_drafts.php'; ?>
+                        </div>
+                        <?php if (isset($currentDraft)): ?>
+                        <div id="edit-draft-content" class="tab-pane <?php echo $currentPage === 'edit_draft' ? 'active' : ''; ?>">
+                            <?php include 'admin_edit_draft.php'; ?>
+                        </div>
+                        <?php endif; ?>
+                        <?php if (isset($currentArticle)): ?>
+                        <div id="edit-article-content" class="tab-pane <?php echo $currentPage === 'edit_article' ? 'active' : ''; ?>">
+                            <?php include 'admin_edit_article.php'; ?>
+                        </div>
+                        <?php endif; ?>
+                        <div id="footer-content" class="tab-pane <?php echo $currentPage === 'footer' ? 'active' : ''; ?>">
+                            <?php include 'admin_footer.php'; ?>
+                        </div>
+                        <div id="announcement-content" class="tab-pane <?php echo $currentPage === 'announcement' ? 'active' : ''; ?>">
+                            <?php include 'admin_announcement.php'; ?>
+                        </div>
+                        <div id="comments-content" class="tab-pane <?php echo $currentPage === 'comments' ? 'active' : ''; ?>">
+                            <?php include 'admin_comments.php'; ?>
+                        </div>
+                        <div id="smtp-content" class="tab-pane <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>">
+                            <?php include 'admin_smtp.php'; ?>
+                        </div>
+                        <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
+                            <?php include 'admin_users.php'; ?>
+                        </div>
+                        <div id="landing-content" class="tab-pane <?php echo $currentPage === 'landing' ? 'active' : ''; ?>">
+                            <?php include 'admin_landing.php'; ?>
+                        </div>
+                        <div id="update-content" class="tab-pane <?php echo $currentPage === 'update' ? 'active' : ''; ?>">
+                            <?php include 'admin_update.php'; ?>
+                        </div>
+                    </div>
+                </main>
             </div>
         <?php endif; ?>
     </div>

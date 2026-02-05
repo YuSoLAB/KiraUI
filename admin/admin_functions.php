@@ -199,6 +199,70 @@ function publishFromDraft($id) {
     $deleteResult = deleteDraft($id);
     return $deleteResult;
 }
+
+// 获取备份文件列表
+function getBackupFiles() {
+    $backupDir = ROOT_DIR . '/cache/backups/';
+    $backupFiles = [];
+    
+    if (is_dir($backupDir)) {
+        $files = scandir($backupDir);
+        foreach ($files as $file) {
+            if ($file !== '.' && $file !== '..' && pathinfo($file, PATHINFO_EXTENSION) === 'zip') {
+                $filePath = $backupDir . $file;
+                $fileSize = filesize($filePath);
+                $fileTime = filemtime($filePath);
+                
+                $backupFiles[] = [
+                    'name' => $file,
+                    'path' => $filePath,
+                    'size' => formatFileSize($fileSize),
+                    'size_bytes' => $fileSize,
+                    'date' => date('Y-m-d H:i:s', $fileTime),
+                    'timestamp' => $fileTime
+                ];
+            }
+        }
+        
+        // 按时间倒序排列
+        usort($backupFiles, function($a, $b) {
+            return $b['timestamp'] - $a['timestamp'];
+        });
+    }
+    
+    return $backupFiles;
+}
+
+// 删除备份文件
+function deleteBackupFile($filename) {
+    $backupDir = ROOT_DIR . '/cache/backups/';
+    $filePath = $backupDir . $filename;
+    
+    // 安全检查
+    if (strpos(realpath($filePath), realpath($backupDir)) !== 0 || 
+        pathinfo($filename, PATHINFO_EXTENSION) !== 'zip') {
+        return false;
+    }
+    
+    if (file_exists($filePath)) {
+        return unlink($filePath);
+    }
+    
+    return false;
+}
+
+// 格式化文件大小
+function formatFileSize($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } else {
+        return $bytes . ' B';
+    }
+}
 // 获取草稿箱文章
 function getDrafts() {
     $db = Db::getInstance();

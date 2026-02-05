@@ -93,5 +93,15 @@ switch ($_POST['action']) {
             $message = "删除失败";
         }
         break;
+    case 'delete_backup':
+        $filename = $_POST['filename'] ?? '';
+        if (deleteBackupFile($filename)) {
+            $message = "备份文件已删除";
+            header('Location: ?page=cache');
+            exit;
+        } else {
+            $message = "删除备份文件失败";
+        }
+        break;
 }
 ?>

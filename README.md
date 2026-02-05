@@ -8,10 +8,11 @@
 [![PHP 8.0+](https://img.shields.io/badge/PHP-8.0%2B-777BB4)](https://www.php.net/)
 [![MySQL 8.0+](https://img.shields.io/badge/MySQL-8.0%2B-4479A1)](https://www.mysql.com/)
 [![Apache](https://img.shields.io/badge/Apache-HTTP%20Server-D22128)](https://httpd.apache.org/)
+[![PHPMailer](https://img.shields.io/badge/PHPMailer-7.0.2-007396)](https://github.com/PHPMailer/PHPMailer)
 
 </div>
 
-# 重要提醒：在本项目未推出正式版本之前，不建议将其用于生产环境，因为随时会修改数据库结构和代码逻辑，导致数据丢失或系统不稳定。
+# 重要提醒：在本项目推出正式版本之前，不建议将其用于生产环境，因为随时会修改数据库结构和代码逻辑，导致数据丢失或系统不稳定。
 
 ## 📋 项目介绍
 
@@ -25,7 +26,7 @@ KirauI 是一个轻量级、高性能的 PHP 内容管理系统，专为个人�
 - 📝 **文章管理**: 完整的文章发布、编辑、分类标签功能
 - 💬 **评论系统**: 支持用户评论和回复管理
 - 👥 **用户管理**: 多用户角色权限管理
-- 📧 **邮件通知**: 集成 PHPMailer 支持邮件发送
+- 📧 **邮件通知**: 集成 [PHPMailer](https://github.com/PHPMailer/PHPMailer) 支持邮件发送
 - 🎨 **主题切换**: 支持明暗主题切换
 - 🔍 **SEO 友好**: 优化的 URL 结构和元标签
 
@@ -44,8 +45,8 @@ KirauI 是一个轻量级、高性能的 PHP 内容管理系统，专为个人�
 
 - PHP 8.0 或更高版本
 - MySQL 8.0 或更高版本
-- Apache HTTP Server
-- 其他可参考test.php的配置
+- Apache HTTP Server 或 Nginx
+- 其他可参考 test.php 的配置
 
 ### 安装步骤
 
@@ -59,13 +60,12 @@ KirauI 是一个轻量级、高性能的 PHP 内容管理系统，专为个人�
 2. **环境配置**
    - 安装 PHP 8.0 或更高版本
    - 安装 MySQL 8.0 或更高版本
-   - 安装 Apache HTTP Server
-   - 确保 Apache 的 mod_rewrite 模块已启用
+   - 安装 Apache HTTP Server 或 Nginx
+   - 确保 Apache 的 mod_rewrite 模块已启用，或 Nginx 已配置 rewrite 规则
 
 3. **配置数据库**
    - 创建一个新的 MySQL 数据库
    - 访问 `http://your-domain.com/admin/admin` 进行初始化配置
-   - 修改 `include/Db.php` 文件中的数据库连接信息
 
 4. **安装依赖**
    ```bash
@@ -117,13 +117,6 @@ KirauI 是一个轻量级、高性能的 PHP 内容管理系统，专为个人�
 
 ## 🔧 开发指南
 
-### 配置文件
-
-主要配置文件位于 `include/` 目录：
-- `Config.php` - 系统配置类
-- `Db.php` - 数据库连接配置
-- `Mailer.php` - 邮件发送配置
-
 ### 缓存系统
 
 系统使用文件缓存机制，缓存文件存储在 `cache/` 目录。支持缓存清理和手动刷新。
@@ -132,22 +125,6 @@ KirauI 是一个轻量级、高性能的 PHP 内容管理系统，专为个人�
 
 可以通过修改 `style.css` 和 `theme-toggle.js` 文件来自定义网站样式。
 > 未来也许会添加主题包功能
-
-## 🐛 故障排除
-
-### 常见问题
-
-1. **数据库连接错误**
-   - 检查 `include/Db.php` 中的数据库配置
-   - 确保 MySQL 服务正在运行
-
-2. **页面无法访问**
-   - 检查 Apache 的 mod_rewrite 是否启用
-   - 验证 `.htaccess` 文件配置
-
-3. **邮件发送失败**
-   - 检查 SMTP 配置是否正确
-   - 验证 PHPMailer 依赖是否安装
 
 ## 🤝 贡献指南
 

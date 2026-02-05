@@ -605,3 +605,174 @@ body.dark-mode .email-management .comment-item .comment-avatar {
     display: none;
 }
 
+.admin-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+.admin-sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding-right: 5px;
+}
+.admin-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-sidebar .tabs {
+    flex-direction: column;
+    border-bottom: none;
+    margin-bottom: 0;
+    background: linear-gradient(180deg, #fff7fd 0%, #f1eaff 100%);
+    border-radius: 18px;
+    padding: 16px;
+    border: 1px solid var(--admin-border);
+}
+.admin-sidebar .tabs .tab {
+    display: block;
+    width: 100%;
+    margin-right: 0;
+    border-radius: 12px;
+    text-align: left;
+    white-space: normal;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+    padding: 12px 16px;
+}
+.admin-sidebar .tabs .tab.active {
+    border-color: var(--admin-border);
+    background: rgba(155,140,255,0.2);
+}
+
+body.dark-mode .admin-sidebar .tabs {
+    background: linear-gradient(180deg, #2a2a42 0%, #1e1e38 100%);
+    border-color: var(--dark-admin-border);
+}
+body.dark-mode .admin-sidebar .tabs .tab.active {
+    background: rgba(176, 160, 255, 0.2);
+    border-color: var(--dark-admin-border);
+}
+
+@media (max-width: 768px) {
+    .admin-layout {
+        flex-direction: column;
+    }
+    .admin-sidebar {
+        width: 100%;
+        position: static;
+        max-height: none;
+        overflow-x: auto;
+        padding-right: 0;
+    }
+    .admin-sidebar .tabs {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 12px;
+        white-space: nowrap;
+    }
+    .admin-sidebar .tabs .tab {
+        display: inline-block;
+        width: auto;
+        margin-bottom: 0;
+    }
+}
+
+.action-bar.column-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+#update-source-select {
+    width: 100%;
+    max-width: 400px;
+    padding: 10px 16px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: #ffffffaa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c5dfb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center;
+    background-size: 16px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    font-family: inherit;
+    font-size: 14px;
+    color: inherit;
+    cursor: pointer;
+}
+
+body.dark-mode #update-source-select {
+    background: #2a2a42aa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e0c8ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center;
+    border-color: var(--dark-admin-border);
+    color: var(--dark-text);
+}
+
+.btn-small {
+    padding: 5px 12px;
+    font-size: 12px;
+    border-radius: 20px;
+}
+
+.btn {
+    background: #f0eaff;
+    color: #4a3a60;
+    border: 1px solid transparent;
+}
+
+body.dark-mode .btn {
+    background: #4a3a60;
+    color: #e0c8ff;
+    border-color: var(--dark-admin-border);
+}
+
+body.dark-mode .btn-secondary {
+    background: #5a4a70;
+    border-color: var(--dark-admin-border);
+    color: #e0c8ff;
+}
+
+body.dark-mode .btn-secondary:hover {
+    background: #6a5a80;
+}
+
+body.dark-mode .btn-primary {
+    background: linear-gradient(180deg, #ff85c8, #b096ff);
+    box-shadow: 0 5px 15px rgba(176, 160, 255, 0.3);
+}
+
+body.dark-mode #update-source-modal {
+    background: var(--dark-admin-card) !important;
+    border-color: var(--dark-admin-border) !important;
+    color: var(--dark-text);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode #update-source-modal input[type="text"] {
+    background: #2a2a42aa;
+    border-color: var(--dark-admin-border);
+    color: var(--dark-text);
+}
+
+body.dark-mode #source-list > div {
+    background: rgba(176, 160, 255, 0.1) !important;
+    color: var(--dark-text);
+    border: 1px solid var(--dark-admin-border);
+}
+
+body.dark-mode #modal-overlay {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+#source-list button {
+    margin-right: 5px;
+}
+
+body.dark-mode {
+    --dark-pink: #ff85c8;
+    --dark-vio: #b096ff;
+}
