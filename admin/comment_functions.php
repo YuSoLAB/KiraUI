@@ -325,9 +325,10 @@ function getChildComments($parentId) {
     return $allChildren;
 }
 function processCommentContent($content) {
+    // 安全处理：转义所有HTML，保留换行符
     $content = htmlspecialchars($content);
-    $content = preg_replace('/(?<!<br\/?>)\n(?!\s*<\/)/', "<br/>\n", $content);
-    $content = preg_replace('/\n+/', "\n", $content);
+    // 清理多余的连续换行符
+    $content = preg_replace('/\r?\n{3,}/', "\n\n", $content);
     
     return $content;
 }

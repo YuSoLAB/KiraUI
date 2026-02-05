@@ -7,9 +7,9 @@
             <div class="comment-date"><?php echo $comment['created_at']; ?></div>
         </div>
     </div>
-    <div class="comment-content">
-        <?php 
+    <div class="comment-content" style="white-space: pre-wrap; word-wrap: break-word;"><?php 
         $isReply = !empty($comment['parent_id']);
+        $content = trim($comment['content']);
         if ($isReply) {
             if (strpos($comment['content'], '@') === 0) {
                 preg_match('/^@([^\s]+)/', $comment['content'], $matches);
@@ -22,7 +22,8 @@
                     echo '<span class="comment-reply-to">@' . $parentName . '</span> ';
                     echo $comment['content'];
                 }
-            } else {
+            }
+        else {
                 $parentComment = getParentComment($comment['parent_id']);
                 $parentName = $parentComment ? $parentComment['name'] : '未知用户';
                 echo '<span class="comment-reply-to">@' . $parentName . '</span> ';

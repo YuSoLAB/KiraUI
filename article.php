@@ -410,16 +410,15 @@ $next_id = $id + 1;
                                     <div class="comment-date"><?php echo $reply['created_at']; ?></div>
                                 </div>
                             </div>
-                            <div class="comment-content">
-                                <?php 
-                                $content = $reply['content'];
+                            <div class="comment-content" style="white-space: pre-wrap; word-wrap: break-word;"><?php 
+                                $content = trim($reply['content']); 
                                 $parentComment = getParentComment($reply['parent_id']);
                                 if ($parentComment) {
                                     echo '<span class="comment-reply-to">@' . htmlspecialchars($parentComment['name']) . '</span> ';
                                 }                                                               
-                                echo htmlspecialchars($content);
-                                ?>
-                            </div>
+                                // echo htmlspecialchars($content);
+                                echo trim($content);
+                            ?></div>
                             <div class="comment-actions">
                                 <a href="#" class="reply-link" 
                                 data-comment-id="<?php echo $reply['id']; ?>"
@@ -444,9 +443,7 @@ $next_id = $id + 1;
                                 <div class="comment-date"><?php echo $comment['created_at']; ?></div>
                             </div>
                         </div>
-                        <div class="comment-content">
-                            <?php echo htmlspecialchars($comment['content']); ?>
-                        </div>
+                        <div class="comment-content" style="white-space: pre-wrap; word-wrap: break-word;"><?php echo trim($comment['content']); ?></div>
                         <div class="comment-actions">
                             <a href="#" class="reply-link" 
                             data-comment-id="<?php echo $comment['id']; ?>"
