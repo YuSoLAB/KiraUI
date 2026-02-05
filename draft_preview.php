@@ -75,6 +75,7 @@ function parse_shortcodes($content) {
                 $url = 'https://' . $url;
             }
             return '<a href="' . htmlspecialchars($url) . '" 
+                    target="_blank" rel="noopener noreferrer"
                     class="btn secondary" 
                     style="margin: 5px 0; display: inline-flex;
                             align-items: center; gap: 8px;

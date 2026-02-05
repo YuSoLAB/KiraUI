@@ -166,7 +166,7 @@ function parse_shortcodes($content) {
                 $url = 'https://' . $url;
             }
 
-            return '<a href="' . htmlspecialchars($url) . '" class="btn secondary" style="margin: 5px 0; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; font-weight: 700; text-decoration: none; background: #ffffffaa; border: 1.5px solid rgba(155,140,255,.55); color: #6c5dfb; transition: all 0.2s ease;">' . htmlspecialchars($matches[1]) . '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>';
+            return '<a href="' . htmlspecialchars($url) . '" target="_blank" rel="noopener noreferrer" class="btn secondary" style="margin: 5px 0; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; font-weight: 700; text-decoration: none; background: #ffffffaa; border: 1.5px solid rgba(155,140,255,.55); color: #6c5dfb; transition: all 0.2s ease;">' . htmlspecialchars($matches[1]) . '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>';
         },
         $content
     );
@@ -347,6 +347,43 @@ $next_id = $id + 1;
                         <button type="submit" name="submit_comment" class="btn primary">提交评论</button>
                     </form>
                 </div>
+                
+                <script>
+                function autoResizeTextarea(textarea) {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = (textarea.scrollHeight) + 'px';
+                }
+                
+                document.addEventListener('DOMContentLoaded', function() {
+                    const textarea = document.getElementById('content');
+                    if (textarea) {
+                        autoResizeTextarea(textarea);
+                        textarea.addEventListener('input', function() {
+                            autoResizeTextarea(this);
+                        });
+                        textarea.addEventListener('focus', function() {
+                            this.style.transition = 'all 0.3s ease';
+                        });
+                        
+                        textarea.addEventListener('blur', function() {
+                            this.style.transition = 'all 0.2s ease';
+                        });
+                    }
+                    document.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('reply-link')) {
+                            setTimeout(function() {
+                                const replyTextarea = document.querySelector('#commentForm textarea');
+                                if (replyTextarea) {
+                                    autoResizeTextarea(replyTextarea);
+                                    replyTextarea.addEventListener('input', function() {
+                                        autoResizeTextarea(this);
+                                    });
+                                }
+                            }, 100);
+                        }
+                    });
+                });
+                </script>
             <?php
             } else {
                 // 不允许游客评论且用户未登录，显示登录提示
