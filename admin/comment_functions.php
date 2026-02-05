@@ -207,7 +207,7 @@ function addNewComment($articleId, $data) {
     $db = Db::getInstance();
     $emailHash = md5(strtolower(trim($email)));
     $name = htmlspecialchars($name);  
-    $content = nl2br(htmlspecialchars($data['content'] ?? ''));
+    $content = processCommentContent($data['content'] ?? '');
     $parentId = empty($data['parent_id']) || $data['parent_id'] == '0' ? null : $data['parent_id'];
     $needsModeration = true; 
     $stmt_email = $db->prepare("SELECT moderation FROM email_moderation WHERE email_hash = ?");
@@ -324,6 +324,14 @@ function getChildComments($parentId) {
     }
     return $allChildren;
 }
+function processCommentContent($content) {
+    $content = htmlspecialchars($content);
+    $content = preg_replace('/(?<!<br\/?>)\n(?!\s*<\/)/', "<br/>\n", $content);
+    $content = preg_replace('/\n+/', "\n", $content);
+    
+    return $content;
+}
+
 function deleteCommentRecursive($comments, $commentId) {
     $newComments = [];
     foreach ($comments as $comment) {

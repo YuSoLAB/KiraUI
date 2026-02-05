@@ -10,7 +10,6 @@ function autoLogin() {
     
     if (isset($_COOKIE['remember_me'])) {
         $token = $_COOKIE['remember_me'];
-        error_log("自动登录尝试: 令牌存在，长度=" . strlen($token));
         
         try {
             $db = Db::getInstance();

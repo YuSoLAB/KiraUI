@@ -23,6 +23,23 @@ class Config {
     public function get($key, $default = '') {
         return isset($this->cache[$key]) ? $this->cache[$key] : $default;
     }
+    public function getTimezone() {
+        return $this->get('timezone', 'Asia/Shanghai');
+    }
+    public function setTimezone($timezone) {
+        date_default_timezone_set($timezone);
+    }
+    public function getCurrentTime() {
+        return new DateTime('now', new DateTimeZone($this->getTimezone()));
+    }
+    public function getCurrentDateTime($format = 'Y-m-d H:i:s') {
+        return $this->getCurrentTime()->format($format);
+    }
+    public function getFutureTime($interval, $format = 'Y-m-d H:i:s') {
+        $current = $this->getCurrentTime();
+        $current->modify($interval);
+        return $current->format($format);
+    }
     public function set($key, $value) {
         $this->cache[$key] = $value;
         $time = time();

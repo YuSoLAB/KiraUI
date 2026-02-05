@@ -18,6 +18,7 @@ class Db {
         try {
             $this->conn = new PDO($dsn, $this->user, $this->pass, $options);
             $this->conn->exec("SET NAMES {$this->charset} COLLATE utf8mb4_0900_ai_ci");
+            $this->setDatabaseTimezone();
         } catch (\PDOException $e) {
             throw new \PDOException($e->getMessage(), (int)$e->getCode());
         }
@@ -27,5 +28,20 @@ class Db {
             self::$instance = new self();
         }
         return self::$instance->conn;
+    }
+    private function setDatabaseTimezone() {
+        $timezone = '+08:00'; 
+        try {
+            $stmt = $this->conn->query("SELECT config_value FROM system_config WHERE config_key = 'timezone' LIMIT 1");
+            if ($row = $stmt->fetch()) {
+                $timezone = $row['config_value'];
+                if (strpos($timezone, '/') !== false) {
+                    $timezone = '+08:00'; 
+                }
+            }
+        } catch (\PDOException $e) {
+        }
+        date_default_timezone_set('Asia/Shanghai'); 
+        $this->conn->exec("SET time_zone = '$timezone'");
     }
 }

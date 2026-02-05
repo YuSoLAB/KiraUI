@@ -40,7 +40,7 @@ try {
     $stmt = $db->prepare("DELETE FROM password_reset WHERE token = ?");
     $stmt->execute([$token]);
     $_SESSION['reset_success'] = '密码已成功重置，请使用新密码登录';
-    header('Location: reset_password.php?token=' . urlencode($token));
+    header('Location: login.php');
     exit;
 } catch (PDOException $e) {
     $_SESSION['reset_error'] = '操作失败：' . $e->getMessage();
