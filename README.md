@@ -49,7 +49,7 @@ KirauI 是一个轻量级、高性能的 PHP 内容管理系统，专为个人�
 
 1. **下载项目**
    ```bash
-   git clone [https://github.com/YuSoLAB/KiraUI]
+   git clone https://github.com/YuSoLAB/KiraUI
    ```    
    - 或者直接下载项目压缩包并解压
    - 上传项目到您的 Web 服务器根目录
