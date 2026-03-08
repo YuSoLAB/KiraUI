@@ -56,7 +56,8 @@
 
 /* ── Reset & Base ───────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
+html { margin: 0; }
+body { margin: 0; }
 
 body {
   font-family: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB",
@@ -70,6 +71,8 @@ body {
     radial-gradient(800px 600px at 50% 105%,  rgba(155,140,255,.10), transparent 60%),
     linear-gradient(175deg, #f8f7ff 0%, #f2efff 55%, #ede8ff 100%);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   overflow-x: hidden;
   position: relative;
 }
@@ -355,6 +358,9 @@ body.dark-mode .btn-login {
    PAGE LAYOUT
    ══════════════════════════════════════════════════════ */
 .wrap {
+  flex-grow: 1;
+  width: 100%;
+  box-sizing: border-box;
   margin-top: 76px;
   padding: 2rem 2rem 2rem;
   max-width: 1200px;

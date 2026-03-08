@@ -499,8 +499,9 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeMenuModal
 .mfg input:focus, .mfg select:focus {
     outline:none; border-color:#6c5dfb; box-shadow:0 0 0 3px rgba(108,93,251,.1); }
 .mfrow2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
-.mfurl  { display:flex; gap:.4rem; }
-.mfurl input { flex:1; }
+.mfurl  { display:flex; gap:.4rem; align-items:stretch; }
+.mfurl input  { flex:1 1 0; min-width:0; }
+.mfurl select { flex:0 0 auto; width:180px; }
 .mfcheck label { flex-direction:row; align-items:center; gap:.4rem;
     font-weight:normal; cursor:pointer; }
 .req { color:#c0392b; }
