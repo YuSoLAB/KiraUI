@@ -1,0 +1,165 @@
+-- ============================================================
+-- 菜单与页面管理功能迁移脚本
+-- 追加到 yusolab.sql 或单独执行
+-- ============================================================
+
+-- 自定义页面表
+DROP TABLE IF EXISTS `pages`;
+CREATE TABLE IF NOT EXISTS `pages` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `slug` varchar(255) NOT NULL COMMENT 'URL友好别名，如 about / contact',
+  `content` longtext,
+  `meta_description` varchar(500) DEFAULT NULL,
+  `status` enum('published','draft') NOT NULL DEFAULT 'draft',
+  `template` varchar(50) NOT NULL DEFAULT 'default' COMMENT '页面模板',
+  `created_by` int DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `created_by` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='自定义页面';
+
+-- 导航菜单项表
+DROP TABLE IF EXISTS `nav_items`;
+CREATE TABLE IF NOT EXISTS `nav_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `label` varchar(100) NOT NULL COMMENT '显示名称',
+  `link_type` enum('custom','page','home','articles') NOT NULL DEFAULT 'custom' COMMENT 'custom=自定义URL, page=关联页面, home=首页, articles=文章列表',
+  `url` varchar(500) DEFAULT NULL COMMENT '自定义URL（link_type=custom时使用）',
+  `page_id` int DEFAULT NULL COMMENT '关联页面ID（link_type=page时使用）',
+  `parent_id` int DEFAULT NULL COMMENT '父菜单项ID，NULL表示顶级',
+  `sort_order` int NOT NULL DEFAULT 0 COMMENT '同级排序序号',
+  `target` enum('_self','_blank') NOT NULL DEFAULT '_self' COMMENT '链接打开方式',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否显示',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `parent_id` (`parent_id`),
+  KEY `page_id` (`page_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='导航菜单项';
+
+-- 插入默认菜单项（对应 index.php 中原有的静态菜单）
+INSERT INTO `nav_items` (`label`, `link_type`, `url`, `parent_id`, `sort_order`, `target`, `is_active`) VALUES
+('首页', 'home', 'index.php', NULL, 0, '_self', 1),
+('文章', 'articles', 'index.php', NULL, 1, '_self', 1),
+('关于', 'custom', '#', NULL, 2, '_self', 1),
+('联系', 'custom', '#', NULL, 3, '_self', 1);
+
+
+
+-- ============================================================
+-- 封面图字段迁移
+-- 为 articles 和 article_index 表添加 cover_image 字段
+-- ============================================================
+
+ALTER TABLE `articles`
+    ADD COLUMN `cover_image` varchar(500) DEFAULT NULL COMMENT '封面图路径（如 /uploads/images/xxx.jpg）'
+    AFTER `author_email`;
+
+ALTER TABLE `article_index`
+    ADD COLUMN `cover_image` varchar(500) DEFAULT NULL COMMENT '封面图路径'
+    AFTER `created_by`;
+
+ALTER TABLE `drafts`
+    ADD COLUMN `cover_image` varchar(500) DEFAULT NULL COMMENT '封面图路径'
+    AFTER `read_time`;
+
+
+
+UPDATE articles
+SET cover_image = CONCAT(
+    'serve_media.php?folder=images&name=',
+    SUBSTRING_INDEX(cover_image, '/', -1)
+)
+WHERE cover_image LIKE '%/uploads/images/%'
+   OR cover_image LIKE 'uploads/images/%';
+
+
+
+-- ============================================================
+-- 新增：用户登录历史记录表
+-- 执行一次即可；已存在则跳过
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `user_login_history` (
+    `id`          INT          NOT NULL AUTO_INCREMENT,
+    `user_id`     INT          NOT NULL                    COMMENT '关联 users.id',
+
+    -- IP 信息
+    `ipv4`        VARCHAR(15)  DEFAULT NULL                COMMENT '客户端 IPv4',
+    `ipv6`        VARCHAR(45)  DEFAULT NULL                COMMENT '客户端 IPv6',
+    `all_ips`     VARCHAR(500) DEFAULT NULL                COMMENT '所有检测到的 IP（逗号分隔）',
+    `ip_source`   VARCHAR(100) DEFAULT 'REMOTE_ADDR'       COMMENT 'IP 来源请求头',
+    `is_proxy`    TINYINT(1)   NOT NULL DEFAULT 0          COMMENT '是否检测到代理/CDN',
+    `is_local`    TINYINT(1)   NOT NULL DEFAULT 0          COMMENT '是否内网/本地地址',
+
+    -- 设备信息
+    `user_agent`  VARCHAR(500) DEFAULT NULL                COMMENT '原始 User-Agent',
+    `browser`     VARCHAR(100) DEFAULT NULL                COMMENT '浏览器（含主版本）',
+    `os`          VARCHAR(100) DEFAULT NULL                COMMENT '操作系统',
+    `device_type` ENUM('desktop','mobile','tablet')
+                               NOT NULL DEFAULT 'desktop'  COMMENT '设备类型',
+
+    `login_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间',
+
+    PRIMARY KEY (`id`),
+    KEY `idx_user_login` (`user_id`, `login_at`),
+
+    CONSTRAINT `fk_login_history_user`
+        FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+        ON DELETE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='用户登录历史：记录每次会话的 IP 与设备信息';
+
+
+
+  -- ========================================================
+-- 用户收藏功能：新增 user_favorites 表
+-- 执行方式：在 yusolab 数据库中运行此脚本
+-- ========================================================
+
+USE `yusolab`;
+
+DROP TABLE IF EXISTS `user_favorites`;
+CREATE TABLE IF NOT EXISTS `user_favorites` (
+  `id`         INT          NOT NULL AUTO_INCREMENT,
+  `user_id`    INT          NOT NULL COMMENT '用户ID，关联 users.id',
+  `article_id` INT          NOT NULL COMMENT '文章ID，关联 articles.id（文章可能被删除）',
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '收藏时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_article` (`user_id`, `article_id`),
+  KEY `idx_user_id`    (`user_id`),
+  KEY `idx_article_id` (`article_id`)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='用户收藏记录';
+
+-- 注意：不添加外键约束到 articles.id，
+-- 因为需要保留对已删除文章的收藏记录（标记为已删除状态展示）。
+-- user_id 仍然关联 users.id 并在用户删除时级联清除。
+ALTER TABLE `user_favorites`
+  ADD CONSTRAINT `fk_favorites_user`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+
+
+
+  -- 通知表：当有人回复评论时，向被回复的已登录用户发送提醒
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `id`         INT NOT NULL AUTO_INCREMENT,
+  `user_id`    INT NOT NULL COMMENT '接收通知的用户 ID（关联 users.id）',
+  `type`       ENUM('reply') NOT NULL DEFAULT 'reply' COMMENT '通知类型，目前仅支持 reply',
+  `comment_id` INT NOT NULL COMMENT '触发通知的回复评论 ID',
+  `article_id` INT NOT NULL COMMENT '所在文章 ID',
+  `is_read`    TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_read` (`user_id`, `is_read`),
+  CONSTRAINT `fk_notif_user`    FOREIGN KEY (`user_id`)    REFERENCES `users`    (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_notif_comment` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='评论回复通知';

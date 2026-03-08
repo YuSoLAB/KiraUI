@@ -1,55 +1,87 @@
-<div class="section">
-    <h2>系统更新</h2>
-    <p><strong>当前版本:</strong> <span id="current-version-text">加载中...</span></p>
-    <div class="action-bar column-left">
-        <select id="update-source-select" style="max-width:400px;"></select>
-        <button id="btn-check-update" class="btn btn-primary" onclick="checkUpdate()">检查更新</button>
-        <button class="btn btn-secondary" onclick="showSourceManager()">管理更新源</button>
-    </div>
+<div class="admin-section">
 
-    <div id="update-info" style="display: none;" class="stats-card">
-        <h3>发现新版本: <span id="new-version-text" style="color: #e74c3c;"></span></h3>
-        <p><strong>更新说明:</strong></p>
-        <div id="update-changelog" style="background: rgba(155,140,255,.1); padding: 10px; border-radius: 8px;"></div>
-        <div style="margin-top: 15px;">
-            <button id="btn-start-update" class="btn btn-warning" onclick="startUpdate(false)">确认并开始在线更新</button>
-            <div id="manual-prompt" style="display:none; margin-top:15px; padding:10px; background: #fff3cd; border-radius:8px; color:#856404;"></div>
+    <div class="mhdr">
+        <div>
+            <h2 class="mhdr-title">🔄 系统更新</h2>
+            <p class="mhdr-sub">检查并安装系统更新，支持在线更新与手动上传更新包。</p>
+            <div class="upd-hdr-actions">
+                <select id="update-source-select" class="upd-source-select"></select>
+                <button id="btn-check-update" class="btn btn-primary" onclick="checkUpdate()">检查更新</button>
+                <button class="btn btn-secondary" onclick="showSourceManager()">管理更新源</button>
+            </div>
         </div>
     </div>
 
-    <hr style="margin: 30px 0; border: 0; border-top: 1px dashed var(--admin-border);">
+    <div class="mtip">💡 当前版本：<strong id="current-version-text">加载中...</strong>　|　选择更新源后点「检查更新」，发现新版本后可在线一键更新，或手动上传 ZIP 包更新。</div>
 
-    <div class="form-group">
-        <label>手动上传更新包 (ZIP格式)</label>
-        <input type="file" id="manual-update-file" accept=".zip" style="margin-bottom: 10px;">
-        <button class="btn btn-secondary" onclick="startManualUpdate()">上传并更新</button>
+    <!-- 发现新版本卡片 -->
+    <div id="update-info" style="display:none;" class="upd-card">
+        <div class="upd-card-hd">
+            <span class="upd-newver-label">🎉 发现新版本</span>
+            <span id="new-version-text" class="upd-newver-badge"></span>
+        </div>
+        <div class="upd-card-bd">
+            <p class="upd-section-label">更新说明</p>
+            <div id="update-changelog" class="upd-changelog"></div>
+            <div class="upd-card-actions">
+                <button id="btn-start-update" class="btn btn-primary" onclick="startUpdate(false)">✅ 确认并开始在线更新</button>
+                <div id="manual-prompt" class="upd-manual-prompt" style="display:none;"></div>
+            </div>
+        </div>
     </div>
 
-    <div id="update-progress-container" style="display:none; margin-top: 20px;">
-        <h3>更新进度</h3>
-        <div style="width: 100%; background: #eee; border-radius: 8px; overflow: hidden; height: 20px;">
-            <div id="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #9b8cff, #ff4db1); transition: width 0.3s;"></div>
+    <div class="upd-divider"></div>
+
+    <!-- 手动上传 -->
+    <div class="upd-manual-section">
+        <h3 class="upd-section-title">📦 手动上传更新包</h3>
+        <div class="mfg upd-file-group">
+            <label>选择 ZIP 格式更新包</label>
+            <div class="upd-file-row">
+                <input type="file" id="manual-update-file" accept=".zip" class="upd-file-input">
+                <button class="btn btn-secondary" onclick="startManualUpdate()">上传并更新</button>
+            </div>
         </div>
-        <div id="progress-log" style="margin-top: 10px; font-family: monospace; background: #1a1a2e; color: #00ff00; padding: 15px; border-radius: 8px; height: 150px; overflow-y: auto; font-size: 13px;">
-            等待开始...
+    </div>
+
+    <!-- 更新进度 -->
+    <div id="update-progress-container" style="display:none;" class="upd-progress-wrap">
+        <h3 class="upd-section-title">⚙️ 更新进度</h3>
+        <div class="upd-progress-bar-wrap">
+            <div id="progress-bar" class="upd-progress-bar"></div>
+        </div>
+        <div id="progress-log" class="upd-log">等待开始...</div>
+    </div>
+
+</div>
+
+<!-- 管理更新源 Modal -->
+<div id="update-source-modal" class="mmodal" style="display:none;" onclick="if(event.target===this)closeSourceModal()">
+    <div class="mmodal-box">
+        <div class="mmodal-hd">
+            <h3>管理更新源</h3>
+            <button onclick="closeSourceModal()">✕</button>
+        </div>
+        <div class="mmodal-bd">
+            <div id="source-list" class="upd-source-list"></div>
+            <div class="upd-addsrc-form">
+                <p class="upd-section-label" style="margin-bottom:.5rem;">添加新更新源</p>
+                <div class="mfg">
+                    <label>名称</label>
+                    <input type="text" id="new-source-name" placeholder="如：官方源" autocomplete="off">
+                </div>
+                <div class="mfg" style="margin-top:.55rem;">
+                    <label>URL</label>
+                    <input type="text" id="new-source-url" placeholder="https://example.com/update.json" autocomplete="off">
+                </div>
+            </div>
+        </div>
+        <div class="mmodal-ft">
+            <button class="btn btn-secondary" onclick="closeSourceModal()">关闭</button>
+            <button class="btn btn-primary" onclick="addUpdateSource()">＋ 添加</button>
         </div>
     </div>
 </div>
-
-<div id="update-source-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--admin-bg); border:1px solid var(--admin-border); border-radius:12px; padding:20px; z-index:1000; max-width:500px; width:90%; max-height:80vh; overflow:auto;">
-    <h3>管理更新源</h3>
-    <div id="source-list"></div>
-    <div style="margin-top:15px;">
-        <input type="text" id="new-source-name" placeholder="名称" style="width:100%; margin-bottom:5px;">
-        <input type="text" id="new-source-url" placeholder="URL" style="width:100%; margin-bottom:5px;">
-        <button class="btn btn-primary" onclick="addUpdateSource()">添加</button>
-    </div>
-    <div style="margin-top:10px; text-align:right;">
-        <button class="btn btn-secondary" onclick="closeSourceModal()">关闭</button>
-    </div>
-</div>
-<div id="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999;" onclick="closeSourceModal()"></div>
-
 
 <script>
 let updateData = null;
@@ -130,22 +162,22 @@ async function loadUpdateSources() {
             listDiv.innerHTML = '';
             sources.forEach(source => {
                 const div = document.createElement('div');
-                div.style.padding = '8px';
-                div.style.margin = '5px 0';
-                div.style.background = 'rgba(155,140,255,.1)';
-                div.style.borderRadius = '6px';
+                div.className = 'upd-src-item';
                 div.innerHTML = `
-                    <strong>${source.name}</strong> <small>${source.url}</small>
-                    ${source.url === defaultUrl ? ' (默认)' : ''}
-                    <div style="margin-top:5px;">
-                        <button class="btn btn-small btn-secondary" onclick="setDefaultSource('${source.url}')">设为默认</button>
-                        <button class="btn btn-small btn-danger" onclick="deleteUpdateSource('${source.url}')">删除</button>
+                    <div class="upd-src-info">
+                        <strong>${source.name}</strong>
+                        <small class="upd-src-url">${source.url}</small>
+                        ${source.url === defaultUrl ? '<span class="upd-src-default">默认</span>' : ''}
+                    </div>
+                    <div class="upd-src-btns">
+                        <button class="btn btn-xs mbtn-t" onclick="setDefaultSource('${source.url}')">设为默认</button>
+                        <button class="btn btn-xs mbtn-d" onclick="deleteUpdateSource('${source.url}')">删除</button>
                     </div>
                 `;
                 listDiv.appendChild(div);
             });
             if (sources.length === 0) {
-                listDiv.innerHTML = '<p>暂无自定义更新源，使用默认官方源。</p>';
+                listDiv.innerHTML = '<p class="upd-src-empty">暂无自定义更新源，使用默认官方源。</p>';
             }
         } else {
             console.error('加载更新源失败', result.msg);
@@ -157,14 +189,12 @@ async function loadUpdateSources() {
 
 // 显示管理源模态框
 function showSourceManager() {
-    document.getElementById('update-source-modal').style.display = 'block';
-    document.getElementById('modal-overlay').style.display = 'block';
+    document.getElementById('update-source-modal').style.display = 'flex';
     loadUpdateSources();
 }
 
 function closeSourceModal() {
     document.getElementById('update-source-modal').style.display = 'none';
-    document.getElementById('modal-overlay').style.display = 'none';
 }
 
 // 添加更新源
@@ -259,8 +289,8 @@ async function checkUpdate() {
                     const sortedChangelog = data.changelog.sort((a, b) => compareVersions(b.version, a.version));
                     sortedChangelog.forEach(item => {
                         changelogHtml += `
-                            <div style="margin-bottom: 15px; padding: 10px; background: rgba(155,140,255,0.05); border-radius: 6px;">
-                                <h4 style="margin:0 0 5px; color: #9b8cff;">v${item.version}</h4>
+                            <div class="upd-cl-item">
+                                <h4 class="upd-cl-ver">v${item.version}</h4>
                                 <div>${item.content.replace(/\n/g, '<br>')}</div>
                             </div>
                         `;
@@ -279,7 +309,7 @@ async function checkUpdate() {
                     steps.forEach(step => {
                         if (step.affected_below && compareVersions(currentVersion, step.affected_below) < 0) {
                             stepsHtml += `
-                                <div style="margin-bottom: 10px; padding: 8px; background: #fff3cd; border-radius: 6px;">
+                                <div class="upd-manual-step">
                                     <p><strong>⚠️ ${step.message}</strong></p>
                                     ${step.link ? `<p><a href="${step.link}" target="_blank" class="btn btn-primary">前往操作</a></p>` : ''}
                                 </div>
@@ -294,7 +324,7 @@ async function checkUpdate() {
                     }
                     if (needManual) {
                         stepsHtml = `
-                            <div>
+                            <div class="upd-manual-step">
                                 <p><strong>⚠️ 此更新需要手动准备：</strong> ${data.manual.message || '请按照指引操作。'}</p>
                                 ${data.manual.link ? `<p><a href="${data.manual.link}" target="_blank" class="btn btn-primary">前往手动操作页面</a></p>` : ''}
                             </div>
@@ -369,7 +399,7 @@ async function startUpdate(ignoreManual = false) {
             needManual = false;
         }
         if (needManual) {
-            alert('此更新需要先完成手动操作，请点击“检查更新”重新确认。');
+            alert('此更新需要先完成手动操作，请点击"检查更新"重新确认。');
             return;
         }
     }
@@ -381,12 +411,13 @@ async function startUpdate(ignoreManual = false) {
 
 async function executeUpdateQueue(isManual, fileSource, hash = '') {
     const steps = [
-        { id: 'backup', name: '备份当前文件与数据库', percent: 20 },
-        { id: 'download', name: '获取更新包', percent: 50, skip: isManual },
-        { id: 'verify', name: '验证文件完整性', percent: 60, skip: isManual },
-        { id: 'extract', name: '解压到缓存目录准备', percent: 75 },
-        { id: 'apply', name: '执行覆盖更新', percent: 95 },
-        { id: 'cleanup', name: '清理临时文件', percent: 100 }
+        { id: 'backup',    name: '备份当前文件',      percent: 20 },
+        { id: 'download',  name: '获取更新包',         percent: 45, skip: isManual },
+        { id: 'verify',    name: '验证文件完整性',     percent: 55, skip: isManual },
+        { id: 'extract',   name: '解压到缓存目录',     percent: 68 },
+        { id: 'apply',     name: '执行文件覆盖',       percent: 82 },
+        { id: 'db_migrate',name: '执行数据库迁移',     percent: 95 },
+        { id: 'cleanup',   name: '清理临时文件',       percent: 100 }
     ];
 
     for (let step of steps) {
@@ -404,6 +435,17 @@ async function executeUpdateQueue(isManual, fileSource, hash = '') {
             
             if (result.code !== 200) throw new Error(result.msg);
             
+            // db_migrate 步骤：把每条迁移结果打印到日志
+            if (step.id === 'db_migrate' && result.data && result.data.length > 0) {
+                result.data.forEach(m => {
+                    const icon = m.status === 'ok' ? '✅' : '❌';
+                    log(`  ${icon} ${m.migration}${m.description ? ' — ' + m.description : ''}`,
+                        m.status === 'ok' ? 'success' : 'error');
+                });
+            } else if (step.id === 'db_migrate') {
+                log('  数据库已是最新，无待执行迁移', 'success');
+            }
+
             log(`${step.name} 完成`, 'success');
             setProgress(step.percent);
         } catch (e) {
@@ -453,4 +495,306 @@ async function triggerRollback() {
 
 // 页面加载时加载更新源
 window.addEventListener('load', loadUpdateSources);
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSourceModal(); });
 </script>
+
+<style>
+/* ═══════════════════════════════════════════════════
+   admin_update.php — 与 admin_menus.php 统一的样式
+   ═══════════════════════════════════════════════════ */
+
+/* ───────────── Header ───────────── */
+.upd-hdr-actions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-top: .75rem;
+}
+.upd-source-select {
+    padding: .48rem .72rem;
+    border: 1px solid var(--admin-border, rgba(155,140,255,.4));
+    border-radius: 8px;
+    font-size: .9rem;
+    background: var(--admin-card, #fff);
+    color: inherit;
+    max-width: 260px;
+    transition: border-color .15s;
+}
+.upd-source-select:focus {
+    outline: none;
+    border-color: #6c5dfb;
+    box-shadow: 0 0 0 3px rgba(108,93,251,.1);
+}
+
+/* ───────────── New-version card ───────────── */
+.upd-card {
+    border: 1px solid var(--admin-border, rgba(155,140,255,.35));
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--admin-card, #fff);
+    margin-bottom: 1.2rem;
+}
+.upd-card-hd {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .75rem 1.2rem;
+    background: rgba(155,140,255,.06);
+    border-bottom: 1px solid var(--admin-border, rgba(155,140,255,.2));
+}
+.upd-newver-label {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--sub, #555);
+}
+.upd-newver-badge {
+    font-size: .88rem;
+    font-weight: 700;
+    background: rgba(231,76,60,.12);
+    color: #c0392b;
+    border-radius: 10px;
+    padding: 2px 10px;
+}
+.upd-card-bd {
+    padding: 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+}
+.upd-section-label {
+    margin: 0;
+    font-size: .83rem;
+    font-weight: 700;
+    color: var(--sub, #666);
+}
+.upd-changelog {
+    background: rgba(155,140,255,.07);
+    border-radius: 8px;
+    padding: .75rem 1rem;
+    font-size: .88rem;
+    line-height: 1.6;
+    max-height: 280px;
+    overflow-y: auto;
+}
+.upd-cl-item {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(155,140,255,.05);
+    border-radius: 6px;
+}
+.upd-cl-item:last-child { margin-bottom: 0; }
+.upd-cl-ver {
+    margin: 0 0 4px;
+    font-size: .86rem;
+    color: #6c5dfb;
+}
+.upd-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+}
+.upd-manual-prompt {
+    padding: .75rem 1rem;
+    background: rgba(255,193,7,.1);
+    border-left: 3px solid #f2c94c;
+    border-radius: 6px;
+    color: #856404;
+    font-size: .88rem;
+}
+.upd-manual-step {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: rgba(255,193,7,.08);
+    border-radius: 6px;
+}
+.upd-manual-step:last-child { margin-bottom: 0; }
+
+/* ───────────── Divider ───────────── */
+.upd-divider {
+    margin: 1.2rem 0;
+    border: 0;
+    border-top: 1px dashed var(--admin-border, rgba(155,140,255,.3));
+}
+
+/* ───────────── Manual upload section ───────────── */
+.upd-manual-section {
+    margin-bottom: 1.2rem;
+}
+.upd-section-title {
+    margin: 0 0 .75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--sub, #555);
+}
+.upd-file-group { max-width: 560px; }
+.upd-file-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+}
+.upd-file-input {
+    flex: 1;
+    min-width: 0;
+    padding: .42rem .6rem;
+    border: 1px solid var(--admin-border, rgba(155,140,255,.4));
+    border-radius: 8px;
+    font-size: .88rem;
+    background: var(--admin-card, #fff);
+    color: inherit;
+}
+
+/* ───────────── Progress ───────────── */
+.upd-progress-wrap {
+    margin-top: .5rem;
+}
+.upd-progress-bar-wrap {
+    width: 100%;
+    background: rgba(155,140,255,.12);
+    border-radius: 8px;
+    overflow: hidden;
+    height: 18px;
+    margin-bottom: .75rem;
+}
+.upd-progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #6c5dfb, #ff4db1);
+    border-radius: 8px;
+    transition: width .3s ease;
+}
+.upd-log {
+    font-family: 'Courier New', Consolas, monospace;
+    background: #1a1a2e;
+    color: #b0b0c5;
+    padding: 1rem 1.1rem;
+    border-radius: 10px;
+    height: 160px;
+    overflow-y: auto;
+    font-size: .82rem;
+    line-height: 1.6;
+    border: 1px solid rgba(155,140,255,.15);
+}
+
+/* ───────────── Source modal list ───────────── */
+.upd-source-list {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+}
+.upd-src-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .6rem;
+    padding: .6rem .8rem;
+    background: rgba(155,140,255,.07);
+    border-radius: 8px;
+    border: 1px solid var(--admin-border, rgba(155,140,255,.2));
+}
+.upd-src-info {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+}
+.upd-src-info strong {
+    font-size: .88rem;
+}
+.upd-src-url {
+    font-size: .76rem;
+    color: var(--sub, #999);
+    word-break: break-all;
+}
+.upd-src-default {
+    font-size: .7rem;
+    background: rgba(108,93,251,.12);
+    color: #6c5dfb;
+    border-radius: 8px;
+    padding: 1px 7px;
+    font-weight: 600;
+    width: fit-content;
+}
+.upd-src-btns {
+    display: flex;
+    gap: .25rem;
+    flex-shrink: 0;
+}
+.upd-src-empty {
+    font-size: .86rem;
+    color: var(--sub, #999);
+    text-align: center;
+    padding: .8rem;
+}
+.upd-addsrc-form {
+    border-top: 1px solid var(--admin-border, rgba(155,140,255,.2));
+    padding-top: .9rem;
+}
+
+/* ═══════════ Dark Mode ═══════════ */
+body.dark-mode .upd-source-select {
+    background: #2a2a42aa;
+    border-color: var(--dark-admin-border);
+    color: var(--dark-text, #eaeaea);
+}
+body.dark-mode .upd-source-select:focus {
+    border-color: var(--dark-vio, #b096ff);
+    box-shadow: 0 0 0 3px rgba(176,160,255,.12);
+}
+body.dark-mode .upd-card {
+    background: var(--dark-admin-card, #2a2a42dd);
+    border-color: var(--dark-admin-border);
+}
+body.dark-mode .upd-card-hd {
+    background: rgba(176,160,255,.05);
+    border-bottom-color: var(--dark-admin-border);
+}
+body.dark-mode .upd-newver-label { color: var(--dark-sub, #b0b0c5); }
+body.dark-mode .upd-newver-badge { background: rgba(235,87,87,.15); color: #eb5757; }
+body.dark-mode .upd-section-label { color: var(--dark-sub, #b0b0c5); }
+body.dark-mode .upd-section-title { color: var(--dark-sub, #b0b0c5); }
+body.dark-mode .upd-changelog {
+    background: rgba(176,160,255,.06);
+    color: var(--dark-text, #eaeaea);
+}
+body.dark-mode .upd-cl-item { background: rgba(176,160,255,.04); }
+body.dark-mode .upd-cl-ver  { color: var(--dark-vio, #b096ff); }
+body.dark-mode .upd-manual-prompt {
+    background: rgba(242,201,76,.08);
+    border-left-color: #f2c94c;
+    color: #f2c94c;
+}
+body.dark-mode .upd-manual-step { background: rgba(242,201,76,.06); }
+body.dark-mode .upd-file-input {
+    background: #2a2a42aa;
+    border-color: var(--dark-admin-border);
+    color: var(--dark-text, #eaeaea);
+}
+body.dark-mode .upd-progress-bar-wrap { background: rgba(176,160,255,.1); }
+body.dark-mode .upd-log {
+    background: #111125;
+    border-color: rgba(176,160,255,.12);
+}
+body.dark-mode .upd-src-item {
+    background: rgba(176,160,255,.05);
+    border-color: var(--dark-admin-border);
+}
+body.dark-mode .upd-src-url { color: var(--dark-sub, #b0b0c5); }
+body.dark-mode .upd-src-default {
+    background: rgba(176,160,255,.12);
+    color: var(--dark-vio, #b096ff);
+}
+body.dark-mode .upd-src-empty { color: var(--dark-sub, #b0b0c5); }
+body.dark-mode .upd-addsrc-form { border-top-color: var(--dark-admin-border); }
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+    .upd-hdr-actions { width: 100%; }
+    .upd-source-select { max-width: 100%; width: 100%; }
+    .upd-src-item { flex-direction: column; align-items: flex-start; }
+    .upd-file-row { flex-direction: column; align-items: stretch; }
+}
+</style>

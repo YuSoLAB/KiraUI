@@ -60,19 +60,26 @@ class ArticleIndex {
                 $index = $this->cache->get($cache_key);
             }
             if ($index === false || empty($index)) {
-                $stmt = $this->db->query("SELECT * FROM article_index ORDER BY date DESC, id DESC");
+                // LEFT JOIN articles 以获取 cover_image（article_index 表无此字段）
+                $stmt = $this->db->query(
+                    "SELECT ai.*, a.cover_image
+                     FROM article_index ai
+                     LEFT JOIN articles a ON ai.id = a.id
+                     ORDER BY ai.date DESC, ai.id DESC"
+                );
                 $articles = $stmt->fetchAll();   
                 $index = [];
                 foreach ($articles as $article) {
                     $index[$article['id']] = [
-                        'id' => $article['id'],
-                        'title' => $article['title'],
-                        'date' => $article['date'],
-                        'excerpt' => $article['excerpt'],
-                        'tags' => !empty($article['tags']) ? explode(',', $article['tags']) : [],
-                        'word_count' => $article['word_count'],
-                        'read_time' => $article['read_time'],
-                        'modified' => strtotime($article['modified'])
+                        'id'          => $article['id'],
+                        'title'       => $article['title'],
+                        'date'        => $article['date'],
+                        'excerpt'     => $article['excerpt'],
+                        'tags'        => !empty($article['tags']) ? explode(',', $article['tags']) : [],
+                        'word_count'  => $article['word_count'],
+                        'read_time'   => $article['read_time'],
+                        'cover_image' => $article['cover_image'] ?? '',
+                        'modified'    => strtotime($article['modified'])
                     ];
                 }
                 $this->cache->set($cache_key, $index, 1800);
@@ -85,19 +92,25 @@ class ArticleIndex {
     }
     public function getArticleInfo($id) {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM article_index WHERE id = ?");
+            $stmt = $this->db->prepare(
+                "SELECT ai.*, a.cover_image
+                 FROM article_index ai
+                 LEFT JOIN articles a ON ai.id = a.id
+                 WHERE ai.id = ?"
+            );
             $stmt->execute([$id]);
             $article = $stmt->fetch();            
             if ($article) {
                 return [
-                    'id' => $article['id'],
-                    'title' => $article['title'],
-                    'date' => $article['date'],
-                    'excerpt' => $article['excerpt'],
-                    'tags' => !empty($article['tags']) ? explode(',', $article['tags']) : [],
-                    'word_count' => $article['word_count'],
-                    'read_time' => $article['read_time'],
-                    'modified' => strtotime($article['modified'])
+                    'id'          => $article['id'],
+                    'title'       => $article['title'],
+                    'date'        => $article['date'],
+                    'excerpt'     => $article['excerpt'],
+                    'tags'        => !empty($article['tags']) ? explode(',', $article['tags']) : [],
+                    'word_count'  => $article['word_count'],
+                    'read_time'   => $article['read_time'],
+                    'cover_image' => $article['cover_image'] ?? '',
+                    'modified'    => strtotime($article['modified'])
                 ];
             }
             return false;

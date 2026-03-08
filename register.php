@@ -15,92 +15,31 @@
         .auth-form input:not([type="checkbox"]) { padding-left: 44px !important; }
         .auth-form input:focus + .input-icon { fill: #ff4db1; }
         body.dark-mode .input-icon { fill: #b0a0ff; }
-        body.dark-mode .auth-form input:focus + .input-icon { fill: #ff66b8; }
+        body.dark-mode .auth-form input:focus + .input-icon { fill: #ff88cc; }
         
         /* 验证码区域样式 */
-        .verify-group { 
-            display: flex; 
-            gap: 10px; 
-            align-items: stretch; 
-        }
-        .verify-group .input-wrapper { 
-            flex: 1 1 0; 
-            margin-bottom: 0; 
-            min-width: 0; 
-        }
+        .verify-group { display: flex; gap: 10px; align-items: stretch; }
+        .verify-group .input-wrapper { flex: 1 1 0; margin-bottom: 0; min-width: 0; }
         .verify-btn { 
-            white-space: nowrap; 
-            padding: 0 15px; 
-            height: 50px; 
-            margin: 0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            font-size: 14px;
-            min-width: 120px;
-            max-width: 140px;
+            white-space: nowrap; padding: 0 15px; height: 50px; margin: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; min-width: 120px; max-width: 140px;
         }
         
-        /* 移动端适配优化 */
-        @media (max-width: 768px) {
-            .verify-btn {
-                padding: 0 12px;
-                min-width: 110px;
-                max-width: 130px;
-                font-size: 13px;
-            }
-        }
-        
+        @media (max-width: 768px) { .verify-btn { padding: 0 12px; min-width: 110px; max-width: 130px; font-size: 13px; } }
         @media (max-width: 600px) {
-            .verify-group {
-                flex-direction: row;
-                flex-wrap: wrap;
-            }
-            .verify-group .input-wrapper {
-                flex: 2 1 0;
-                min-width: 150px;
-            }
-            .verify-btn {
-                flex: 1 1 0;
-                min-width: auto;
-                max-width: none;
-                height: 44px;
-            }
+            .verify-group { flex-direction: row; flex-wrap: wrap; }
+            .verify-group .input-wrapper { flex: 2 1 0; min-width: 150px; }
+            .verify-btn { flex: 1 1 0; min-width: auto; max-width: none; height: 44px; }
         }
-        
         @media (max-width: 480px) {
-            .verify-group {
-                flex-direction: column;
-                gap: 8px;
-            }
-            .verify-group .input-wrapper {
-                width: 100%;
-                min-width: 100%;
-            }
-            .verify-btn {
-                width: 100%;
-                height: 44px;
-                max-width: 100%;
-                padding: 0 20px;
-            }
+            .verify-group { flex-direction: column; gap: 8px; }
+            .verify-group .input-wrapper { width: 100%; min-width: 100%; }
+            .verify-btn { width: 100%; height: 44px; max-width: 100%; padding: 0 20px; }
         }
+        @media (max-width: 360px) { .verify-btn { font-size: 12px; padding: 0 10px; } }
         
-        @media (max-width: 360px) {
-            .verify-btn {
-                font-size: 12px;
-                padding: 0 10px;
-            }
-        }
-        
-        small { display: block; margin-top: 4px; opacity: 0.8; }
-        
-        /* 验证码输入框优化 */
-        #verify_code {
-            font-family: monospace;
-            letter-spacing: 2px;
-            font-size: 16px;
-            text-align: center;
-        }
+        #verify_code { font-family: monospace; letter-spacing: 2px; font-size: 16px; text-align: center; }
     </style>
 </head>
 <body>
@@ -161,7 +100,7 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary full-width" style="margin-top: 10px;">立即注册</button>
+                <button type="submit" class="btn btn-primary full-width">立即注册</button>
                 <p class="form-hint">已有账号？<a href="login.php" class="link-primary">直接登录</a></p>
                 <p class="auth-terms">
                     注册即代表同意 <a href="#" class="link">服务条款</a> 与 <a href="#" class="link">隐私政策</a>

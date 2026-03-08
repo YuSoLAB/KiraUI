@@ -23,7 +23,6 @@ $step = $_POST['step'] ?? '';
 // 需要保留、不被覆盖的文件和目录相对路径
 $excludes = [
     'include/Db.php',
-    'include/Config.php',
     'yusolab.sql',
     'img',
     'uploads',
@@ -397,6 +396,25 @@ try {
             }
             $zip->close();
             echo json_encode(['code' => 200, 'msg' => '回滚成功']);
+            break;
+
+        // ── 数据库迁移 ──────────────────────────────────────────────
+        case 'db_migrate':
+            $migrationsDir = ROOT_DIR . '/migrations';
+            // 没有迁移目录视为无需迁移（兼容旧更新包）
+            if (!is_dir($migrationsDir)) {
+                echo json_encode(['code' => 200, 'msg' => 'no migrations', 'data' => []]);
+                break;
+            }
+            require_once ROOT_DIR . '/include/DbMigrator.php';
+            $migrator = new DbMigrator($db, $migrationsDir);
+            $pending  = $migrator->getPending();
+            if (empty($pending)) {
+                echo json_encode(['code' => 200, 'msg' => 'already up-to-date', 'data' => []]);
+                break;
+            }
+            $results = $migrator->runPending();
+            echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => $results]);
             break;
 
         default:

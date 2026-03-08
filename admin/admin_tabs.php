@@ -1,5 +1,5 @@
 <?php
-// 选项卡配置
+// 选项卡配置（含菜单管理、页面管理与媒体库）
 ?>
 <div class="tabs">
     <div class="tab <?php echo $currentPage === 'siteinfo' ? 'active' : ''; ?>" 
@@ -30,6 +30,12 @@
             <?php endif; ?>
         </div>
     <?php endif; ?>
+    <div class="tab <?php echo $currentPage === 'menus' ? 'active' : ''; ?>" 
+        data-tab="menus" data-url="?page=menus">菜单管理</div>
+    <div class="tab <?php echo $currentPage === 'pages' ? 'active' : ''; ?>" 
+        data-tab="pages" data-url="?page=pages">页面管理</div>
+    <div class="tab <?php echo $currentPage === 'media' ? 'active' : ''; ?>" 
+        data-tab="media" data-url="?page=media">媒体库</div>
     <div class="tab <?php echo $currentPage === 'footer' ? 'active' : ''; ?>" 
         data-tab="footer" data-url="?page=footer">页脚管理</div>
     <div class="tab <?php echo $currentPage === 'announcement' ? 'active' : ''; ?>" 
@@ -38,6 +44,8 @@
         data-tab="comments" data-url="?page=comments">评论管理</div>
     <div class="tab <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>" 
         data-tab="smtp" data-url="?page=smtp">SMTP管理</div>
+    <div class="tab <?php echo $currentPage === 'email_notify' ? 'active' : ''; ?>" 
+        data-tab="email_notify" data-url="?page=email_notify">邮件通知</div>
     <div class="tab <?php echo $currentPage === 'users' ? 'active' : ''; ?>" 
         data-tab="users" data-url="?page=users">用户管理</div>
     <div class="tab <?php echo $currentPage === 'landing' ? 'active' : ''; ?>" 

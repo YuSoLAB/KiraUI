@@ -3,20 +3,20 @@
 switch ($_POST['action']) {
     case 'clear_all':
         $cache->clear();
-        $message = "所有缓存已清空！";
-        break;
+        header('Location: ?page=cache&msg=' . urlencode('所有缓存已清空！') . '&mt=success');
+        exit;
     case 'clear_expired':
         $cache->clearExpired();
-        $message = "过期缓存已清理！";
-        break;
+        header('Location: ?page=cache&msg=' . urlencode('过期缓存已清理！') . '&mt=success');
+        exit;
     case 'rebuild_index':
         $articleIndex->buildIndex();
-        $message = "文章索引已重建！";
-        break;
+        header('Location: ?page=cache&msg=' . urlencode('文章索引已重建！') . '&mt=success');
+        exit;
     case 'clear_index':
         $articleIndex->clearIndex();
-        $message = "文章索引已清空！";
-        break;
+        header('Location: ?page=cache&msg=' . urlencode('文章索引已清空！') . '&mt=success');
+        exit;
     case 'move_to_draft':
         $id = $_POST['id'] ?? 0;
         if (moveToDraft($id)) {

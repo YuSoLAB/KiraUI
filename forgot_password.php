@@ -18,7 +18,7 @@ require_once __DIR__ . '/include/Config.php';
         .auth-form input { padding-left: 44px !important; }
         .auth-form input:focus + .input-icon { fill: #ff4db1; }
         body.dark-mode .input-icon { fill: #b0a0ff; }
-        body.dark-mode .auth-form input:focus + .input-icon { fill: #ff66b8; }
+        body.dark-mode .auth-form input:focus + .input-icon { fill: #ff88cc; }
     </style>
 </head>
 <body>

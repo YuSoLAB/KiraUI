@@ -243,10 +243,18 @@ function addNewComment($articleId, $data) {
             $content,
             $needsModeration ? 0 : 1
         ]);
+        $newCommentId = $db->lastInsertId();
+
+        // 若是回复且已通过审核，立即向被回复用户发送站内通知
+        if ($parentId !== null && !$needsModeration) {
+            createReplyNotification($parentId, $newCommentId, $articleId);
+        }
+
         return [
             'success' => true,
             'message' => $needsModeration ? '评论已提交，等待审核' : '评论已发布',
-            'needs_moderation' => $needsModeration
+            'needs_moderation' => $needsModeration,
+            'new_comment_id' => $newCommentId,
         ];
     } catch (PDOException $e) {
         return ['success' => false, 'message' => '评论提交失败: ' . $e->getMessage()];
@@ -274,7 +282,18 @@ function moderateComment($articleId, $commentId, $approved) {
     $db = Db::getInstance();
     try {
         $stmt = $db->prepare("UPDATE comments SET approved = ? WHERE id = ? AND article_id = ?");
-        return $stmt->execute([$approved ? 1 : 0, $commentId, $articleId]);
+        $result = $stmt->execute([$approved ? 1 : 0, $commentId, $articleId]);
+
+        // 审核通过时，若是回复评论则补发通知
+        if ($result && $approved) {
+            $stmt2 = $db->prepare("SELECT parent_id FROM comments WHERE id = ?");
+            $stmt2->execute([$commentId]);
+            $parentId = $stmt2->fetchColumn();
+            if ($parentId) {
+                createReplyNotification($parentId, $commentId, $articleId);
+            }
+        }
+        return $result;
     } catch (PDOException $e) {
         error_log("审核评论错误: " . $e->getMessage());
         return false;
@@ -324,6 +343,191 @@ function getChildComments($parentId) {
     }
     return $allChildren;
 }
+// ─── 通知相关 ────────────────────────────────────────────────────────────────
+
+/**
+ * 初始化通知表（首次使用时自动建表）
+ */
+function initNotificationsTable() {
+    $db = Db::getInstance();
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS notifications (
+            id         INT NOT NULL AUTO_INCREMENT,
+            user_id    INT NOT NULL,
+            type       ENUM('reply') NOT NULL DEFAULT 'reply',
+            comment_id INT NOT NULL,
+            article_id INT NOT NULL,
+            is_read    TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_user_read (user_id, is_read),
+            CONSTRAINT fk_notif_user    FOREIGN KEY (user_id)    REFERENCES users    (id) ON DELETE CASCADE,
+            CONSTRAINT fk_notif_comment FOREIGN KEY (comment_id) REFERENCES comments (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci");
+    } catch (PDOException $e) {
+        error_log("初始化通知表失败: " . $e->getMessage());
+    }
+}
+
+/**
+ * 当新回复发布后，向被回复的已登录用户写入通知。
+ * 仅当父评论的邮箱能匹配到 users 表中的账号时才生效。
+ * 不向自己回复自己的情况发送通知。
+ */
+function createReplyNotification($parentCommentId, $replyCommentId, $articleId) {
+    $db = Db::getInstance();
+    try {
+        // 取父评论的邮箱
+        $stmt = $db->prepare("SELECT email FROM comments WHERE id = ?");
+        $stmt->execute([$parentCommentId]);
+        $parentEmail = $stmt->fetchColumn();
+        if (!$parentEmail) return;
+
+        // 查找对应的注册用户
+        $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$parentEmail]);
+        $userId = $stmt->fetchColumn();
+        if (!$userId) return; // 访客评论，无法推送站内通知
+
+        // 取回复者邮箱，避免自回复产生通知
+        $stmt = $db->prepare("SELECT email FROM comments WHERE id = ?");
+        $stmt->execute([$replyCommentId]);
+        $replyEmail = $stmt->fetchColumn();
+        if ($replyEmail === $parentEmail) return;
+
+        initNotificationsTable();
+        $stmt = $db->prepare(
+            "INSERT INTO notifications (user_id, type, comment_id, article_id)
+             VALUES (?, 'reply', ?, ?)"
+        );
+        $stmt->execute([$userId, $replyCommentId, $articleId]);
+    } catch (PDOException $e) {
+        error_log("创建回复通知失败: " . $e->getMessage());
+    }
+}
+
+/**
+ * 获取指定用户的通知列表（附带评论内容与文章信息）。
+ *
+ * @param  int  $userId
+ * @param  bool $unreadOnly  仅返回未读通知
+ * @param  int  $limit
+ * @return array
+ */
+function getUserNotifications($userId, $unreadOnly = false, $limit = 50) {
+    $db = Db::getInstance();
+    initNotificationsTable();
+    try {
+        $readCond = $unreadOnly ? "AND n.is_read = 0" : "";
+        $stmt = $db->prepare("
+            SELECT
+                n.id,
+                n.type,
+                n.is_read,
+                n.created_at,
+                n.article_id,
+                n.comment_id,
+                -- 回复者信息
+                rc.name        AS reply_name,
+                rc.email       AS reply_email,
+                rc.content     AS reply_content,
+                -- 被回复的评论内容（摘要）
+                pc.name        AS parent_name,
+                pc.content     AS parent_content,
+                pc.id          AS parent_comment_id,
+                -- 文章标题
+                a.title        AS article_title
+            FROM notifications n
+            JOIN comments rc ON rc.id = n.comment_id
+            JOIN comments pc ON pc.id = rc.parent_id
+            JOIN articles  a ON a.id  = n.article_id
+            WHERE n.user_id = ? $readCond
+            ORDER BY n.created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("获取通知失败: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * 获取用户未读通知数量（用于显示角标）。
+ */
+function getUnreadNotificationCount($userId) {
+    $db = Db::getInstance();
+    initNotificationsTable();
+    try {
+        $stmt = $db->prepare(
+            "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0"
+        );
+        $stmt->execute([$userId]);
+        return (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+/**
+ * 删除指定通知（或该用户全部通知）。
+ *
+ * @param int      $userId
+ * @param int|null $notificationId  传 null 则删除全部
+ */
+function deleteNotification($userId, $notificationId = null) {
+    $db = Db::getInstance();
+    initNotificationsTable();
+    try {
+        if ($notificationId !== null) {
+            $stmt = $db->prepare(
+                "DELETE FROM notifications WHERE id = ? AND user_id = ?"
+            );
+            $stmt->execute([$notificationId, $userId]);
+        } else {
+            $stmt = $db->prepare(
+                "DELETE FROM notifications WHERE user_id = ?"
+            );
+            $stmt->execute([$userId]);
+        }
+        return true;
+    } catch (PDOException $e) {
+        error_log("删除通知失败: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * 将指定通知（或该用户所有通知）标记为已读。
+ *
+ * @param int      $userId
+ * @param int|null $notificationId  传 null 则标记全部
+ */
+function markNotificationsRead($userId, $notificationId = null) {
+    $db = Db::getInstance();
+    initNotificationsTable();
+    try {
+        if ($notificationId !== null) {
+            $stmt = $db->prepare(
+                "UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?"
+            );
+            $stmt->execute([$notificationId, $userId]);
+        } else {
+            $stmt = $db->prepare(
+                "UPDATE notifications SET is_read = 1 WHERE user_id = ?"
+            );
+            $stmt->execute([$userId]);
+        }
+        return true;
+    } catch (PDOException $e) {
+        error_log("标记通知已读失败: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function processCommentContent($content) {
     // 安全处理：转义所有HTML，保留换行符
     $content = htmlspecialchars($content);

@@ -9,22 +9,13 @@
     <style>
         .input-wrapper { position: relative; margin-bottom: 5px; }
         .input-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            fill: #9b8cff;
-            transition: all 0.3s ease;
-            pointer-events: none;
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            width: 20px; height: 20px; fill: #9b8cff; transition: all 0.3s ease; pointer-events: none;
         }
-        .auth-form input { padding-left: 44px !important; }
+        .auth-form input:not([type="checkbox"]) { padding-left: 44px !important; }
         .auth-form input:focus + .input-icon { fill: #ff4db1; transform: translateY(-50%) scale(1.1); }
         body.dark-mode .input-icon { fill: #b0a0ff; }
-        body.dark-mode .auth-form input:focus + .input-icon { fill: #ff66b8; }
-        .auth-card { animation: floatIn 0.6s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
-        @keyframes floatIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        body.dark-mode .auth-form input:focus + .input-icon { fill: #ff88cc; }
     </style>
 </head>
 <body>
@@ -74,7 +65,7 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary full-width" style="margin-top: 10px;">立即登录</button>
+                <button type="submit" class="btn btn-primary full-width">立即登录</button>
                 <p class="form-hint">还没有账号？<a href="register.php" class="link-primary">免费注册</a></p>
             </form>
         </div>

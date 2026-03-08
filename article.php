@@ -52,6 +52,7 @@ if (file_exists($imgDir)) {
     }, $banners);
 }
 $randomBanner = $banners ? $banners[array_rand($banners)] : '';
+$preloadBanner = $randomBanner ?: 'img/default-banner.png';
 function loadArticleFromDb($id) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM articles WHERE id = ?");
@@ -204,13 +205,47 @@ function parse_shortcodes($content) {
 }
 $article = loadArticleFromCache($id);
 $next_id = $id + 1;
+
+// ── 动态导航菜单 ──────────────────────────────────────────────
+function getNavMenuTree(): array {
+    try {
+        $db   = Db::getInstance();
+        $stmt = $db->query(
+            "SELECT * FROM nav_menus WHERE is_active=1
+             ORDER BY COALESCE(parent_id,0) ASC, sort_order ASC, id ASC"
+        );
+        $flat = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($flat)) return _defaultNavMenus();
+        $map = []; $tree = [];
+        foreach ($flat as $item) { $item['children'] = []; $map[$item['id']] = $item; }
+        foreach ($map as $id_key => &$item) {
+            if ($item['parent_id'] && isset($map[$item['parent_id']])) {
+                $map[$item['parent_id']]['children'][] = &$item;
+            } else { $tree[] = &$item; }
+        }
+        unset($item);
+        return $tree;
+    } catch (Exception $e) { return _defaultNavMenus(); }
+}
+function _defaultNavMenus(): array {
+    return [
+        ['label'=>'首页','url'=>'index.php','children'=>[],'open_new_tab'=>0,'icon'=>''],
+        ['label'=>'文章','url'=>'index.php','children'=>[],'open_new_tab'=>0,'icon'=>''],
+        ['label'=>'关于','url'=>'#',        'children'=>[],'open_new_tab'=>0,'icon'=>''],
+        ['label'=>'联系','url'=>'#',        'children'=>[],'open_new_tab'=>0,'icon'=>''],
+    ];
+}
+$navMenus = getNavMenuTree();
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($htmlTitle); ?></title>
+    <title><?php echo htmlspecialchars(($article['title'] ?? '') ? $article['title'] . ' - ' . $htmlTitle : $htmlTitle); ?></title>
+    <?php if ($preloadBanner): ?>
+    <link rel="preload" href="<?php echo htmlspecialchars($preloadBanner); ?>" as="image">
+    <?php endif; ?>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -228,10 +263,37 @@ $next_id = $id + 1;
                 <?php endif; ?>
             </a>
             <ul class="nav-menu">
-                <li><a href="index.php" class="nav-link">首页</a></li>
-                <li><a href="index.php" class="nav-link">文章</a></li>
-                <li><a href="#" class="nav-link">关于</a></li>
-                <li><a href="#" class="nav-link">联系</a></li>
+                <?php foreach ($navMenus as $item): ?>
+                <li class="<?php echo !empty($item['children']) ? 'has-dropdown' : ''; ?>">
+                    <a href="<?php echo htmlspecialchars($item['url']); ?>"
+                       class="nav-link"
+                       <?php echo !empty($item['open_new_tab']) ? 'target="_blank" rel="noopener"' : ''; ?>>
+                        <?php if (!empty($item['icon'])): ?>
+                            <span class="nav-icon"><?php echo htmlspecialchars($item['icon']); ?></span>
+                        <?php endif; ?>
+                        <?php echo htmlspecialchars($item['label']); ?>
+                        <?php if (!empty($item['children'])): ?>
+                            <span class="dropdown-arrow">▾</span>
+                        <?php endif; ?>
+                    </a>
+                    <?php if (!empty($item['children'])): ?>
+                    <ul class="dropdown-menu">
+                        <?php foreach ($item['children'] as $child): ?>
+                        <li>
+                            <a href="<?php echo htmlspecialchars($child['url']); ?>"
+                               class="nav-link"
+                               <?php echo !empty($child['open_new_tab']) ? 'target="_blank" rel="noopener"' : ''; ?>>
+                                <?php if (!empty($child['icon'])): ?>
+                                    <span class="nav-icon"><?php echo htmlspecialchars($child['icon']); ?></span>
+                                <?php endif; ?>
+                                <?php echo htmlspecialchars($child['label']); ?>
+                            </a>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php endif; ?>
+                </li>
+                <?php endforeach; ?>
             </ul>
             <div class="nav-right">
                 <button id="themeToggle" class="theme-toggle">🌙</button>
@@ -239,7 +301,7 @@ $next_id = $id + 1;
                     <?php
                     if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) {
                         echo '<span class="user-welcome">欢迎，' . htmlspecialchars($_SESSION['user']['nickname']) . '</span>';
-                        echo '<a href="user_center.php" class="btn btn-small btn-login">用户中心</a>';
+                        echo '<a href="user_center" class="btn btn-small btn-login">用户中心</a>';
                     } else {
                         echo '<a href="login" class="btn btn-small btn-login">登录</a>';
                         echo '<a href="register" class="btn btn-small btn-register">注册</a>';
@@ -265,9 +327,9 @@ $next_id = $id + 1;
                 </div>
             </div>
             <div class="article-meta">
-                <span>发布日期: <?php echo $article['date'] ?? '未知'; ?></span>
-                <span>字数: <?php echo $article['word_count'] ?? 0; ?></span>
-                <span>阅读时间: <?php echo $article['read_time'] ?? 5; ?> 分钟</span>
+                <span>📅 发布于 <?php echo $article['date'] ?? '未知'; ?></span>
+                <span>📝 <?php echo $article['word_count'] ?? 0; ?> 字</span>
+                <span>⏱ 约 <?php echo $article['read_time'] ?? 5; ?> 分钟</span>
             </div>
             <div class="article-tags">
                 <?php foreach (($article['tags'] ?? []) as $tag): ?>
@@ -277,8 +339,45 @@ $next_id = $id + 1;
             <div class="article-content">
                 <?php echo parse_shortcodes($article['content'] ?? '<p>文章内容加载失败。</p>'); ?>
             </div>
+            <?php
+            // ── 收藏状态初始化（服务端预判，避免首屏闪烁）────────────────
+            $isFavorited  = false;
+            $isLoggedInFav = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
+            if ($isLoggedInFav && isset($id) && !isset($article['is_default'])) {
+                try {
+                    $favDb   = Db::getInstance();
+                    $favStmt = $favDb->prepare(
+                        "SELECT id FROM user_favorites WHERE user_id = ? AND article_id = ? LIMIT 1"
+                    );
+                    $favStmt->execute([(int)$_SESSION['user']['id'], $id]);
+                    $isFavorited = (bool)$favStmt->fetch();
+                } catch (Exception $e) { /* 静默失败 */ }
+            }
+            ?>
             <div class="actions">
                 <a href="index.php" class="btn primary">返回首页</a>
+                <?php if ($isLoggedInFav && !isset($article['is_default'])): ?>
+                <button id="favBtn"
+                        class="btn secondary fav-btn <?php echo $isFavorited ? 'fav-active' : ''; ?>"
+                        data-article-id="<?php echo $id; ?>"
+                        data-favorited="<?php echo $isFavorited ? '1' : '0'; ?>"
+                        title="<?php echo $isFavorited ? '取消收藏' : '收藏文章'; ?>">
+                    <svg width="15" height="15" viewBox="0 0 24 24"
+                         fill="<?php echo $isFavorited ? 'currentColor' : 'none'; ?>"
+                         stroke="currentColor" stroke-width="2" id="favIcon">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span id="favText"><?php echo $isFavorited ? '已收藏' : '收藏文章'; ?></span>
+                </button>
+                <?php elseif (!$isLoggedInFav && !isset($article['is_default'])): ?>
+                <a href="login" class="btn secondary" title="登录后可收藏">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    收藏文章
+                </a>
+                <?php endif; ?>
                 <?php
                 $articleIndex = new ArticleIndex();
                 $index = $articleIndex->getIndex();
@@ -478,10 +577,18 @@ $next_id = $id + 1;
             navMenu.classList.toggle('active');
             navToggle.classList.toggle('active');
         });
-        document.querySelectorAll('.nav-link').forEach(link => {
+        document.querySelectorAll('.nav-menu > li:not(.has-dropdown) .nav-link').forEach(link => {
             link.addEventListener('click', () => {
                 navMenu.classList.remove('active');
                 navToggle.classList.remove('active');
+            });
+        });
+        document.querySelectorAll('.has-dropdown > .nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768) {
+                    e.preventDefault();
+                    this.closest('li').classList.toggle('open');
+                }
             });
         });
         (function(){
@@ -504,19 +611,23 @@ $next_id = $id + 1;
                 for (var j=0;j<kids.length;j+=2){ kids[j].remove(); }
             }
         })();
-        document.addEventListener('DOMContentLoaded', function() {
-            const bannerImages = <?php echo json_encode($banners); ?>;            
-            const randomIndex = Math.floor(Math.random() * bannerImages.length);
-            const selectedImage = bannerImages[randomIndex];        
+        // 预加载banner图片并立即设置背景
+        (function() {
+            const preloadBanner = '<?php echo $preloadBanner; ?>';
             const img = new Image();
-            img.src = selectedImage;
+            img.src = preloadBanner;
+            
+            // 立即设置背景，避免空白期
+            document.body.style.setProperty('--bg-url', `url('${preloadBanner}')`);
+            
             img.onload = function() {
-                document.body.style.setProperty('--bg-url', `url('${selectedImage}')`);
+                // 图片加载完成后，确保背景已设置
+                document.body.style.setProperty('--bg-url', `url('${preloadBanner}')`);
             };
             img.onerror = function() {
                 document.body.style.setProperty('--bg-url', 'url("img/default-banner.png")');
             };
-        });
+        })();
         document.querySelectorAll('.encrypted-download-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const encryptId = this.getAttribute('data-encrypt-id');
@@ -656,5 +767,107 @@ $next_id = $id + 1;
         });
     </script>
     <?php include 'include/footer.php'; ?>
+
+    <style>
+    /* ── 收藏按钮样式 ────────────────────────────────────────── */
+    .fav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background .2s, color .2s, transform .15s;
+    }
+    .fav-btn:active { transform: scale(.94); }
+    .fav-btn.fav-active {
+        background: linear-gradient(135deg, #ffe066, #ffb347);
+        color: #7a4f00 !important;
+        border-color: #f5c842 !important;
+    }
+    .fav-btn.fav-active svg { color: #e67e00; }
+    .fav-btn.fav-loading { opacity: .7; pointer-events: none; }
+    /* 收藏成功短暂提示 */
+    .fav-toast {
+        position: fixed;
+        bottom: 32px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(30,30,40,.88);
+        color: #fff;
+        padding: 10px 22px;
+        border-radius: 24px;
+        font-size: .9rem;
+        opacity: 0;
+        transition: opacity .25s, transform .25s;
+        pointer-events: none;
+        z-index: 9999;
+        white-space: nowrap;
+    }
+    .fav-toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    </style>
+
+    <div class="fav-toast" id="favToast"></div>
+
+    <script>
+    (function () {
+        const btn = document.getElementById('favBtn');
+        if (!btn) return;
+
+        const toast = document.getElementById('favToast');
+        let toastTimer;
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+
+        btn.addEventListener('click', function () {
+            if (btn.classList.contains('fav-loading')) return;
+
+            const articleId = btn.getAttribute('data-article-id');
+            btn.classList.add('fav-loading');
+
+            fetch('favorites_api.php', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body:    'action=toggle&article_id=' + encodeURIComponent(articleId),
+            })
+            .then(r => r.json())
+            .then(data => {
+                btn.classList.remove('fav-loading');
+                if (data.success) {
+                    const icon    = document.getElementById('favIcon');
+                    const text    = document.getElementById('favText');
+                    const active  = data.favorited;
+                    btn.setAttribute('data-favorited', active ? '1' : '0');
+                    btn.title = active ? '取消收藏' : '收藏文章';
+
+                    if (active) {
+                        btn.classList.add('fav-active');
+                        icon.setAttribute('fill', 'currentColor');
+                        text.textContent = '已收藏';
+                    } else {
+                        btn.classList.remove('fav-active');
+                        icon.setAttribute('fill', 'none');
+                        text.textContent = '收藏文章';
+                    }
+                    showToast(data.message || (active ? '收藏成功 ⭐' : '已取消收藏'));
+                } else {
+                    showToast(data.message || '操作失败，请稍后重试');
+                    if (data.message && data.message.includes('登录')) {
+                        setTimeout(() => { window.location.href = 'login'; }, 1500);
+                    }
+                }
+            })
+            .catch(() => {
+                btn.classList.remove('fav-loading');
+                showToast('网络错误，请检查连接');
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

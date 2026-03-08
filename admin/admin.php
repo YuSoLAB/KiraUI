@@ -12,7 +12,8 @@ $configPath = ROOT_DIR . '/include/Config.php';
 $isInitialized = false;
 // 检查数据库初始化
 if (file_exists($dbConfigPath) && file_exists($dbConfigDistPath)) {
-    $fileContentDiff = file_get_contents($dbConfigPath) !== file_get_contents($dbConfigDistPath);
+    $normalize = fn($s) => str_replace("\r\n", "\n", $s);
+    $fileContentDiff = $normalize(file_get_contents($dbConfigPath)) !== $normalize(file_get_contents($dbConfigDistPath));
     $dbInitialized = false;
     try {
         require_once $dbConfigPath;
@@ -23,14 +24,17 @@ if (file_exists($dbConfigPath) && file_exists($dbConfigDistPath)) {
         $stmt = $db->prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
         $stmt->execute();
         $dbInitialized = $stmt->fetch() !== false;
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
+        // 捕获 Exception 及 PHP8 的 Error（如 $db 为 null 时 prepare() 抛出的 Error）
         $dbInitialized = false;
     }
     $isInitialized = $fileContentDiff || $dbInitialized;
 }
 $currentPage = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
 $initErrors = [];
-$initSuccess = false;
+// 从 Session 闪存读取初始化成功标志（POST 成功后重定向，故须从 Session 中取）
+$initSuccess = !empty($_SESSION['init_success']);
+if ($initSuccess) { unset($_SESSION['init_success']); }
 if (!$isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['init_submit'])) {
     if (empty($_POST['admin_email'])) $initErrors[] = '管理员邮箱不能为空';
     if (empty($_POST['admin_password'])) $initErrors[] = '管理员密码不能为空';
@@ -55,17 +59,25 @@ if (!$isInitialized && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['in
             $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, 'admin')");
             $stmt->execute(['admin', $_POST['admin_email'], $passwordHash]);
             $dbConfigContent = file_get_contents($dbConfigPath . '.dist');
-            $dbConfigContent = str_replace("'localhost'", "'{$_POST['db_host']}'", $dbConfigContent);
-            $dbConfigContent = str_replace("'yusolab'", "'{$_POST['db_name']}'", $dbConfigContent);
-            $dbConfigContent = str_replace("'root'", "'{$_POST['db_user']}'", $dbConfigContent);
-            $dbConfigContent = str_replace("''", "'{$_POST['db_pass']}'", $dbConfigContent);
-            $dbConfigContent = str_replace("'utf8mb4'", "'{$_POST['db_charset']}'", $dbConfigContent);            
+            // 使用正则精确替换各字段值，避免误替换其他同值字符串
+            $dbConfigContent = preg_replace("/(\\\$host\s*=\s*)'[^']*'/", "\${1}'{$_POST['db_host']}'", $dbConfigContent);
+            $dbConfigContent = preg_replace("/(\\\$db\s*=\s*)'[^']*'/",   "\${1}'{$_POST['db_name']}'", $dbConfigContent);
+            $dbConfigContent = preg_replace("/(\\\$user\s*=\s*)'[^']*'/", "\${1}'{$_POST['db_user']}'", $dbConfigContent);
+            $dbConfigContent = preg_replace("/(\\\$pass\s*=\s*)'[^']*'/", "\${1}'{$_POST['db_pass']}'", $dbConfigContent);
+            $dbConfigContent = preg_replace("/(\\\$charset\s*=\s*)'[^']*'/", "\${1}'{$_POST['db_charset']}'", $dbConfigContent);            
             if (!file_put_contents($dbConfigPath, $dbConfigContent)) {
                 throw new Exception("无法写入数据库配置文件，请检查文件权限");
-            }            
-            $initSuccess = true;
+            }
+            // OPcache 缓存了旧版 Db.php 字节码，写入新文件后必须立即失效，
+            // 否则同一进程内 require_once 不会重读磁盘，导致 Db::conn 为 null。
+            if (function_exists('opcache_invalidate')) {
+                opcache_invalidate($dbConfigPath, true);
+            }
             $_SESSION['admin_logged_in'] = true;
-            $isInitialized = true;            
+            $_SESSION['init_success'] = true;
+            // 重定向让新请求干净加载已更新的 Db.php，避免当前请求的旧类定义污染 ArticleIndex。
+            header('Location: admin.php');
+            exit;
         } catch (PDOException $e) {
             $initErrors[] = "数据库错误: " . $e->getMessage();
         } catch (Exception $e) {
@@ -127,7 +139,7 @@ if (in_array($currentPage, ['edit_article', 'edit_draft']) && !isset($_GET['edit
     $currentPage = 'articles';
 }
 // 处理登录后操作
-if ($isLoggedIn) {
+if ($isLoggedIn && $isInitialized) {
     require_once 'admin_functions.php';
     $message = '';
     // 处理选项卡切换
@@ -311,6 +323,15 @@ if ($isLoggedIn) {
                             <?php include 'admin_edit_article.php'; ?>
                         </div>
                         <?php endif; ?>
+                        <div id="menus-content" class="tab-pane <?php echo $currentPage === 'menus' ? 'active' : ''; ?>">
+                            <?php include 'admin_menus.php'; ?>
+                        </div>
+                        <div id="pages-content" class="tab-pane <?php echo $currentPage === 'pages' ? 'active' : ''; ?>">
+                            <?php include 'admin_pages.php'; ?>
+                        </div>
+                        <div id="media-content" class="tab-pane <?php echo $currentPage === 'media' ? 'active' : ''; ?>">
+                            <?php include 'admin_media.php'; ?>
+                        </div>
                         <div id="footer-content" class="tab-pane <?php echo $currentPage === 'footer' ? 'active' : ''; ?>">
                             <?php include 'admin_footer.php'; ?>
                         </div>
@@ -322,6 +343,9 @@ if ($isLoggedIn) {
                         </div>
                         <div id="smtp-content" class="tab-pane <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>">
                             <?php include 'admin_smtp.php'; ?>
+                        </div>
+                        <div id="email_notify-content" class="tab-pane <?php echo $currentPage === 'email_notify' ? 'active' : ''; ?>">
+                            <?php include 'admin_email_notify.php'; ?>
                         </div>
                         <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
                             <?php include 'admin_users.php'; ?>

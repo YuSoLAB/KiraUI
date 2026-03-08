@@ -1,348 +1,442 @@
 <?php
-// 管理员评论管理
+// 评论管理
+require_once __DIR__ . '/../include/Db.php';
+require_once 'admin_functions.php';
 require_once 'comment_functions.php';
-$commentSettings = initCommentSettings();
-function displayPendingCommentAdmin($comment, $articleId) {
-?>
-<div class="comment-item pending">
-    <div class="comment-header">
-        <img src="<?php echo getCommentAvatar($comment['email']); ?>" 
-             alt="<?php echo $comment['name']; ?>" class="comment-avatar">
-        <div>
-            <div class="comment-name">
-                <?php echo $comment['name']; ?>
-                <small><?php echo $comment['email']; ?></small>
-            </div>
-            <div class="comment-date">
-                <?php echo $comment['created_at']; ?>
-                <span class="pending-badge">待审核</span>
-            </div>
-        </div>
-    </div>
-    <div class="comment-content">
-        <?php echo $comment['content']; ?>
-    </div>
-    <div class="comment-actions">
-        <form method="post" style="display: inline;">
-            <input type="hidden" name="comment_action" value="approve">
-            <input type="hidden" name="article_id" value="<?php echo $articleId; ?>">
-            <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
-            <button type="submit" class="btn btn-success btn-sm">批准</button>
-        </form>
-        <form method="post" style="display: inline;">
-            <input type="hidden" name="comment_action" value="reject">
-            <input type="hidden" name="article_id" value="<?php echo $articleId; ?>">
-            <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
-            <button type="submit" class="btn btn-warning btn-sm">拒绝并删除</button>
-        </form>
-    </div>
-    <?php if (!empty($comment['replies'])): ?>
-    <div class="replies">
-        <?php foreach ($comment['replies'] as $reply): ?>
-            <?php displayPendingCommentAdmin($reply, $articleId); ?>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-</div>
-<?php
-}
-function displayApprovedCommentAdmin($comment, $articleId) {
-?>
-<div class="comment-item approved">
-    <div class="comment-header">
-        <img src="<?php echo getCommentAvatar($comment['email']); ?>" 
-             alt="<?php echo $comment['name']; ?>" class="comment-avatar">
-        <div>
-            <div class="comment-name">
-                <?php echo $comment['name']; ?>
-                <small><?php echo $comment['email']; ?></small>
-            </div>
-            <div class="comment-date">
-                <?php echo $comment['created_at']; ?>
-                <span class="approved-badge">已通过</span>
-            </div>
-        </div>
-    </div>
-    <div class="comment-content">
-        <?php echo $comment['content']; ?>
-    </div>
-    <div class="comment-actions">
-        <form method="post" style="display: inline;" onsubmit="return confirm('确定要删除这条评论吗？');">
-            <input type="hidden" name="comment_action" value="delete">
-            <input type="hidden" name="article_id" value="<?php echo $articleId; ?>">
-            <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
-            <button type="submit" class="btn btn-danger btn-sm">删除</button>
-        </form>
-    </div>
-    <?php if (!empty($comment['replies'])): ?>
-    <div class="replies">
-        <?php foreach ($comment['replies'] as $reply): ?>
-            <?php displayApprovedCommentAdmin($reply, $articleId); ?>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-</div>
-<?php
-}
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment_action'])) {
-    $action = $_POST['comment_action'];
-    $articleId = $_POST['article_id'] ?? 0;
-    $commentId = $_POST['comment_id'] ?? '';
-    switch ($action) {
-        case 'approve':
-            moderateComment($articleId, $commentId, true);
-            $message = "评论已批准";
-            break;
-        case 'reject':
-            deleteComment($articleId, $commentId);
-            $message = "评论已拒绝";
-            break;
-        case 'delete':
-            deleteComment($articleId, $commentId);
-            $message = "评论已删除";
-            break;
-        case 'update_email_mode':
-            $emailHash = $_POST['email_hash'] ?? '';
-            $mode = $_POST['mode'] ?? 'strict';
-            if (updateEmailModeration($emailHash, $mode)) {
-                $message = "邮箱审核模式已更新";
-            } else {
-                $message = "更新邮箱审核模式失败";
-            }
-            break;
-        case 'save_settings':
-            $newSettings = [
-                'email_mode' => $_POST['email_mode'] ?? 'all',
-                'allowed_domains' => isset($_POST['allowed_domains']) ? explode("\n", $_POST['allowed_domains']) : [],
-                'blocked_domains' => isset($_POST['blocked_domains']) ? explode("\n", $_POST['blocked_domains']) : [],
-                'default_moderation' => $_POST['default_moderation'] ?? 'strict',
-                'enable_comments' => isset($_POST['enable_comments']) ? true : false,
-                'allow_guest_comments' => isset($_POST['allow_guest_comments']) ? true : false
-            ];        
-            $newSettings['allowed_domains'] = array_filter(array_map('trim', $newSettings['allowed_domains']));
-            $newSettings['blocked_domains'] = array_filter(array_map('trim', $newSettings['blocked_domains']));
-            if (saveCommentSettings($newSettings)) {
-                $commentSettings = $newSettings;
-                $message = "评论设置已保存";
-            } else {
-                $message = "保存设置失败";
-            }
-            break;
-    }
-}
+
 $db = Db::getInstance();
-$stmt = $db->query("SELECT c.*, a.title FROM comments c
-                   LEFT JOIN articles a ON c.article_id = a.id
-                   ORDER BY c.created_at DESC");
-$allDbComments = $stmt->fetchAll();
-$articleComments = [];
-foreach ($allDbComments as $comment) {
-    $articleId = $comment['article_id'];
-    if (!isset($articleComments[$articleId])) {
-        $articleComments[$articleId] = [
-            'id' => $articleId,
-            'title' => $comment['title'] ?? '未知文章',
-            'comments' => [],
-            'emails' => []
-        ];
-    }
-    $articleComments[$articleId]['comments'][] = $comment;
-}
-$allComments = ['pending' => [], 'approved' => []];
-foreach ($articleComments as $article) {
-    $pending = array_filter($article['comments'], function($c) {
-        return $c['approved'] == 0;
-    });
-    $approved = array_filter($article['comments'], function($c) {
-        return $c['approved'] == 1;
-    });
-    if (!empty($pending)) {
-        $allComments['pending'][$article['id']] = $article;
-        $allComments['pending'][$article['id']]['comments'] = $pending;
-    }
-    if (!empty($approved)) {
-        $allComments['approved'][$article['id']] = $article;
-        $allComments['approved'][$article['id']]['comments'] = $approved;
-    }
-}
-$allEmails = [];
-foreach ($allDbComments as $comment) {
-    $emailHash = $comment['email_hash'] ?? '';
-    $email = $comment['email'] ?? '';
-    if (!empty($emailHash) && !isset($allEmails[$emailHash])) {
-        $moderationMode = 'strict';
-        $files = glob(COMMENTS_DIR . 'article_*.json');
-        foreach ($files as $file) {
-            $commentsData = json_decode(file_get_contents($file), true);
-            if (isset($commentsData['emails'][$emailHash]['moderation'])) {
-                $moderationMode = $commentsData['emails'][$emailHash]['moderation'];
-                break;
+
+// ── 处理操作（PRG 模式：POST → Redirect → GET，彻底消除"重新提交表单"提示）──
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $commentId  = intval($_POST['comment_id'] ?? 0);
+    $articleId  = intval($_POST['article_id'] ?? 0);
+    // 携带当前 tab，操作完成后跳回同一个 tab
+    $returnTab  = $_POST['current_tab'] ?? 'pending';
+
+    $msg = '操作失败，请重试';
+    $mt  = 'error';
+
+    switch ($_POST['action']) {
+
+        case 'approve':
+            if (moderateComment($articleId, $commentId, true)) {
+                $msg = '评论已通过审核'; $mt = 'success';
             }
-        }
-        $allEmails[$emailHash] = [
-            'email' => $email,
-            'moderation' => $moderationMode,
-            'hash' => $emailHash
-        ];
+            break;
+
+        case 'reject':
+            if (moderateComment($articleId, $commentId, false)) {
+                $msg = '评论已拒绝'; $mt = 'success';
+            }
+            break;
+
+        case 'delete':
+            if (deleteComment($articleId, $commentId)) {
+                $msg = '评论已删除'; $mt = 'success';
+            }
+            break;
+
+        case 'approve_all':
+            $stmt = $db->prepare("UPDATE comments SET approved = 1 WHERE approved = 0");
+            $stmt->execute();
+            $msg = '所有待审评论已批量通过'; $mt = 'success';
+            break;
+
+        case 'update_email_moderation':
+            $emailHash = $_POST['email_hash'] ?? '';
+            $mode      = $_POST['mode'] ?? 'strict';
+            if ($emailHash && in_array($mode, ['auto', 'strict'])) {
+                updateEmailModeration($emailHash, $mode);
+                $msg = '邮箱审核模式已更新'; $mt = 'success';
+            }
+            $returnTab = 'approved'; // 该操作始终在"已通过"tab
+            break;
+
+        case 'save_comment_settings':
+            $settings = [
+                'email_mode'           => $_POST['email_mode']          ?? 'all',
+                'default_moderation'   => $_POST['default_moderation']  ?? 'strict',
+                'enable_comments'      => isset($_POST['enable_comments']),
+                'allow_guest_comments' => isset($_POST['allow_guest_comments']),
+                'allowed_domains'      => isset($_POST['allowed_domains'])
+                    ? array_filter(array_map('trim', explode("\n", $_POST['allowed_domains']))) : [],
+                'blocked_domains'      => isset($_POST['blocked_domains'])
+                    ? array_filter(array_map('trim', explode("\n", $_POST['blocked_domains']))) : [],
+            ];
+            saveCommentSettings($settings);
+            $msg = '评论设置已保存'; $mt = 'success';
+            $returnTab = 'settings';
+            break;
+    }
+
+    // 因本文件由 admin.php include，页面已有输出，无法用 header()，改用 JS 跳转实现 PRG
+    // 保留原有的 page 参数，避免跳回后台默认首页
+    $basePath  = strtok($_SERVER['REQUEST_URI'], '?');
+    $page      = $_GET['page'] ?? '';
+    $pageParam = $page ? ('page=' . urlencode($page) . '&') : '';
+    $location  = $basePath . '?' . $pageParam . 'msg=' . urlencode($msg) . '&mt=' . urlencode($mt) . '#tab-' . $returnTab;
+    echo '<script>location.replace(' . json_encode($location) . ');</script>';
+    exit;
+}
+
+// ── 从 GET 参数恢复提示消息 ─────────────────────────────────────────────
+$message     = isset($_GET['msg']) ? htmlspecialchars(urldecode($_GET['msg'])) : '';
+$messageType = $_GET['mt'] ?? 'success';
+
+// ── 读取数据 ──────────────────────────────────────────────────────────────
+// 待审评论（approved = 0）
+$stmtPending = $db->query("
+    SELECT c.*, a.title AS article_title
+    FROM comments c
+    LEFT JOIN articles a ON a.id = c.article_id
+    WHERE c.approved = 0
+    ORDER BY c.created_at DESC
+");
+$pendingComments = $stmtPending->fetchAll();
+
+// 已通过评论（approved = 1）- 最近 50 条
+$stmtApproved = $db->query("
+    SELECT c.*, a.title AS article_title
+    FROM comments c
+    LEFT JOIN articles a ON a.id = c.article_id
+    WHERE c.approved = 1
+    ORDER BY c.created_at DESC
+    LIMIT 50
+");
+$approvedComments = $stmtApproved->fetchAll();
+
+// ── 批量查询已通过评论的邮箱审核模式（修复永远显示"严格模式"的问题）────────
+$emailModes = [];
+$emailHashes = array_unique(array_filter(array_column($approvedComments, 'email_hash')));
+if (!empty($emailHashes)) {
+    $placeholders = implode(',', array_fill(0, count($emailHashes), '?'));
+    $stmtModes = $db->prepare(
+        "SELECT email_hash, moderation FROM email_moderation WHERE email_hash IN ($placeholders)"
+    );
+    $stmtModes->execute(array_values($emailHashes));
+    foreach ($stmtModes->fetchAll() as $row) {
+        $emailModes[$row['email_hash']] = $row['moderation'];
     }
 }
-$allEmails = array_values($allEmails);
+
+// 当前评论设置
+$commentSettings = initCommentSettings();
 ?>
-<div class="tab-content" id="comments">
-    <div class="section">
-        <h2>评论管理</h2>
-        <?php if (isset($message) && !empty(trim($message))): ?>
-            <div class="message success"><?php echo $message; ?></div>
-        <?php endif; ?>
-        <div class="settings-card">
-            <h3>评论设置</h3>
-            <form method="post">
-                <input type="hidden" name="comment_action" value="save_settings">
-                <div class="form-group">
-                    <label style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; margin-bottom: 15px;">
-                        <input type="checkbox" name="enable_comments" <?php echo $commentSettings['enable_comments'] ? 'checked' : ''; ?>>
-                        启用评论功能
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; margin-bottom: 15px;">
-                        <input type="checkbox" name="allow_guest_comments" <?php echo isset($commentSettings['allow_guest_comments']) && $commentSettings['allow_guest_comments'] ? 'checked' : ''; ?>>
-                        允许游客评论
-                    </label>
-                    <small>不勾选时，只有登录用户可以评论</small>
-                </div>
-                <div class="form-group">
-                    <label for="default_moderation">默认审核模式</label>
-                    <select id="default_moderation" name="default_moderation">
-                        <option value="strict" <?php echo $commentSettings['default_moderation'] == 'strict' ? 'selected' : ''; ?>>
-                            严格模式（每条评论都需要审核）
-                        </option>
-                        <option value="auto" <?php echo $commentSettings['default_moderation'] == 'auto' ? 'selected' : ''; ?>>
-                            自动模式（首次需要审核，之后自动通过）
-                        </option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="email_mode">邮箱过滤模式</label>
-                    <select id="email_mode" name="email_mode">
-                        <option value="all" <?php echo $commentSettings['email_mode'] == 'all' ? 'selected' : ''; ?>>
-                            允许所有邮箱
-                        </option>
-                        <option value="whitelist" <?php echo $commentSettings['email_mode'] == 'whitelist' ? 'selected' : ''; ?>>
-                            仅允许白名单邮箱
-                        </option>
-                        <option value="blacklist" <?php echo $commentSettings['email_mode'] == 'blacklist' ? 'selected' : ''; ?>>
-                            禁止黑名单邮箱
-                        </option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="allowed_domains">允许的邮箱域名（每行一个）</label>
-                    <textarea id="allowed_domains" name="allowed_domains" rows="5"><?php echo implode("\n", $commentSettings['allowed_domains']); ?></textarea>
-                    <small>仅在白名单模式下生效</small>
-                </div>
-                <div class="form-group">
-                    <label for="blocked_domains">禁止的邮箱域名（每行一个）</label>
-                    <textarea id="blocked_domains" name="blocked_domains" rows="5"><?php echo implode("\n", $commentSettings['blocked_domains']); ?></textarea>
-                    <small>在黑名单模式下生效</small>
-                </div>
-                <button type="submit" class="btn btn-primary">保存设置</button>
+
+<style>
+/* ── comment admin ── */
+.cmt-tabs { display:flex; gap:.5rem; margin-bottom:1.2rem; flex-wrap:wrap; }
+.cmt-tab  { padding:.42rem 1.1rem; border-radius:20px; font-size:.82rem; font-weight:600;
+            cursor:pointer; border:1.5px solid rgba(155,140,255,.35);
+            background:transparent; color:inherit; transition:all .18s; }
+.cmt-tab.active,
+.cmt-tab:hover { background:#6c5dfb; color:#fff; border-color:#6c5dfb; }
+
+.cmt-panel { display:none; }
+.cmt-panel.active { display:block; }
+
+.cmt-row { display:grid;
+           grid-template-columns: 44px 1fr 130px 110px auto;
+           gap:.5rem; align-items:start;
+           padding:.7rem 1rem; border-bottom:1px solid rgba(155,140,255,.12);
+           font-size:.83rem; }
+.cmt-row:last-child { border-bottom:none; }
+.cmt-row:hover { background:rgba(155,140,255,.05); }
+
+.cmt-avatar { width:36px; height:36px; border-radius:50%; object-fit:cover;
+              background:#e0deff; display:flex; align-items:center; justify-content:center; }
+.cmt-meta  { font-size:.73rem; color:var(--sub,#999); margin-top:.2rem; }
+.cmt-body  { margin-top:.3rem; line-height:1.55; word-break:break-word; }
+.cmt-article { font-size:.75rem; color:#6c5dfb; margin-top:.25rem; font-style:italic; }
+.cmt-actions { display:flex; flex-wrap:wrap; gap:.3rem; }
+
+.badge-pending  { background:rgba(255,193,7,.18);  color:#856404; }
+.badge-approved { background:rgba(39,174,96,.15);  color:#1a7a45; }
+
+.bulk-bar { display:flex; align-items:center; gap:.8rem; padding:.6rem 1rem;
+            background:rgba(108,93,251,.07); border-radius:10px; margin-bottom:.8rem; font-size:.82rem; }
+
+.cmt-empty { padding:2.5rem 1rem; text-align:center; color:var(--sub,#aaa); font-size:.88rem; }
+
+.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+@media(max-width:680px) {
+    .settings-grid { grid-template-columns:1fr; }
+    .cmt-row { grid-template-columns:1fr auto; }
+    .cmt-row > :nth-child(1),
+    .cmt-row > :nth-child(3),
+    .cmt-row > :nth-child(4) { display:none; }
+}
+
+body.dark-mode .cmt-row:hover { background:rgba(176,160,255,.06); }
+body.dark-mode .cmt-row { border-bottom-color:rgba(176,160,255,.1); }
+body.dark-mode .bulk-bar { background:rgba(108,93,251,.12); }
+body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select {
+    background:#1e1e32 !important; color:#eaeaea !important;
+    border-color:rgba(176,160,255,.35) !important;
+}
+</style>
+
+<div class="admin-section">
+
+    <div class="mhdr">
+        <div>
+            <h2 class="mhdr-title">💬 评论管理</h2>
+            <p class="mhdr-sub">审核、拒绝或删除用户评论，配置评论功能设置。</p>
+        </div>
+    </div>
+
+    <?php if ($message): ?>
+        <div class="message <?php echo $messageType === 'error' ? 'message-error' : ''; ?>">
+            <?php echo $message; ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- 标签页切换 -->
+    <div class="cmt-tabs">
+        <button class="cmt-tab" data-tab="pending" onclick="switchTab('pending',this)">
+            ⏳ 待审核
+            <?php if (count($pendingComments) > 0): ?>
+                <span class="mbadge badge-pending" style="margin-left:.3rem;"><?php echo count($pendingComments); ?></span>
+            <?php endif; ?>
+        </button>
+        <button class="cmt-tab" data-tab="approved" onclick="switchTab('approved',this)">✅ 已通过</button>
+        <button class="cmt-tab" data-tab="settings" onclick="switchTab('settings',this)">⚙️ 评论设置</button>
+    </div>
+
+    <!-- ── 待审核 ── -->
+    <div id="tab-pending" class="cmt-panel">
+        <?php if (count($pendingComments) > 0): ?>
+        <div class="bulk-bar">
+            <span>共 <strong><?php echo count($pendingComments); ?></strong> 条待审评论</span>
+            <form method="post" style="margin:0;">
+                <input type="hidden" name="action" value="approve_all">
+                <input type="hidden" name="current_tab" value="pending">
+                <button type="submit" class="btn btn-xs mbtn-e"
+                    onclick="return confirm('确认批量通过所有待审评论？')">✅ 全部通过</button>
             </form>
         </div>
-        <div class="comments-management">
-            <h3>待审核评论</h3>
-            <?php if (empty($allComments['pending'])): ?>
-                <p>暂无待审核评论</p>
-            <?php else: ?>
-                <?php foreach ($allComments['pending'] as $article): ?>
-                <div class="article-comments">
-                    <h4>
-                        文章: <a href="../article.php?id=<?php echo $article['id']; ?>" target="_blank">
-                            <?php echo $article['title']; ?>
-                        </a>
-                    </h4>
-                    <?php foreach ($article['comments'] as $comment): ?>
-                        <?php displayPendingCommentAdmin($comment, $article['id']); ?>
-                    <?php endforeach; ?>
-                </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-        <div class="comments-management">
-            <h3>已通过评论</h3>
-            <?php if (empty($allComments['approved'])): ?>
-                <p>暂无已通过评论</p>
-            <?php else: ?>
-                <?php foreach ($allComments['approved'] as $article): ?>
-                <div class="article-comments">
-                    <h4>
-                        文章: <a href="../article.php?id=<?php echo $article['id']; ?>" target="_blank">
-                            <?php echo $article['title']; ?>
-                        </a>
-                    </h4>
-                    <?php foreach ($article['comments'] as $comment): ?>
-                        <?php displayApprovedCommentAdmin($comment, $article['id']); ?>
-                    <?php endforeach; ?>
-                </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-        <div class="email-management">
-            <h3>邮箱管理</h3>
-            <table class="email-table">
-                <thead>
-                    <tr>
-                        <th>邮箱</th>
-                        <th>状态</th>
-                        <th>审核模式</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $allEmails = [];                    
-                    $db = Db::getInstance();
-                    $stmt = $db->query("
-                        SELECT DISTINCT email, email_hash, 
-                            (SELECT approved FROM comments c2 WHERE c2.email_hash = c1.email_hash ORDER BY created_at DESC LIMIT 1) as latest_status
-                        FROM comments c1
-                        WHERE email_hash IS NOT NULL AND email_hash != ''
-                    ");
-                    $uniqueEmails = $stmt->fetchAll();
-                    foreach ($uniqueEmails as $emailData):
-                        $emailHash = $emailData['email_hash'];
-                        $email = $emailData['email'];
-                        $moderationMode = 'strict';
-                        $stmt = $db->prepare("SELECT moderation FROM email_moderation WHERE email_hash = ?");
-                        $stmt->execute([$emailHash]);
-                        $result = $stmt->fetch();
-                        if ($result) {
-                            $moderationMode = $result['moderation'];
-                        }
-                    ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($email); ?></td>
-                        <td><?php echo $emailData['latest_status'] ? '已通过' : '待审核'; ?></td>
-                        <td><?php echo $moderationMode == 'strict' ? '严格审核' : '自动通过'; ?></td>
-                        <td>
-                            <form method="post">
-                                <input type="hidden" name="comment_action" value="update_email_mode">
-                                <input type="hidden" name="email_hash" value="<?php echo $emailHash; ?>">
-                                <input type="hidden" name="mode" value="<?php echo $moderationMode == 'strict' ? 'auto' : 'strict'; ?>">
-                                <button type="submit" class="btn btn-sm <?php echo $moderationMode == 'strict' ? 'btn-success' : 'btn-warning'; ?>">
-                                    <?php echo $moderationMode == 'strict' ? '改为自动通过' : '改为严格审核'; ?>
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                    <?php if (empty($uniqueEmails)): ?>
-                    <tr>
-                        <td colspan="4">暂无评论邮箱记录</td>
-                    </tr>
+        <div class="mbuilder" style="overflow-x:auto;">
+            <div class="mhead" style="grid-template-columns:44px 1fr 130px 110px auto;">
+                <span>头像</span><span>内容</span><span>邮箱</span><span>时间</span><span>操作</span>
+            </div>
+            <?php foreach ($pendingComments as $cmt): ?>
+            <div class="cmt-row">
+                <!-- 头像 -->
+                <div>
+                    <?php $avatar = getCommentAvatar($cmt['email'], $cmt['user_id'] ?? null); ?>
+                    <?php if (strpos($avatar, 'http') === 0): ?>
+                        <img src="<?php echo htmlspecialchars($avatar); ?>" class="cmt-avatar" alt="avatar"
+                             onerror="this.style.display='none'">
+                    <?php else: ?>
+                        <img src="../<?php echo htmlspecialchars($avatar); ?>" class="cmt-avatar" alt="avatar"
+                             onerror="this.style.display='none'">
                     <?php endif; ?>
-                </tbody>
-            </table>
+                </div>
+                <!-- 内容 -->
+                <div>
+                    <strong><?php echo htmlspecialchars($cmt['name']); ?></strong>
+                    <span class="cmt-meta">&nbsp;#<?php echo $cmt['id']; ?>
+                        <?php if ($cmt['parent_id']): ?>
+                            · 回复 #<?php echo $cmt['parent_id']; ?>
+                        <?php endif; ?>
+                    </span>
+                    <div class="cmt-body"><?php echo nl2br(htmlspecialchars($cmt['content'])); ?></div>
+                    <?php if (!empty($cmt['article_title'])): ?>
+                        <div class="cmt-article">📄 <?php echo htmlspecialchars($cmt['article_title']); ?></div>
+                    <?php endif; ?>
+                </div>
+                <!-- 邮箱 -->
+                <span style="word-break:break-all;color:var(--sub,#888);font-size:.75rem;">
+                    <?php echo htmlspecialchars($cmt['email']); ?>
+                </span>
+                <!-- 时间 -->
+                <span style="color:var(--sub,#888);font-size:.75rem;">
+                    <?php echo substr($cmt['created_at'], 0, 16); ?>
+                </span>
+                <!-- 操作 -->
+                <div class="cmt-actions">
+                    <form method="post" style="margin:0;">
+                        <input type="hidden" name="action"      value="approve">
+                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
+                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
+                        <input type="hidden" name="current_tab" value="pending">
+                        <button type="submit" class="btn btn-xs mbtn-e" title="通过">✅</button>
+                    </form>
+                    <form method="post" style="margin:0;">
+                        <input type="hidden" name="action"      value="reject">
+                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
+                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
+                        <input type="hidden" name="current_tab" value="pending">
+                        <button type="submit" class="btn btn-xs" title="拒绝" style="background:rgba(255,193,7,.15);color:#856404;">🚫</button>
+                    </form>
+                    <form method="post" style="margin:0;"
+                          onsubmit="return confirm('确认删除这条评论？')">
+                        <input type="hidden" name="action"      value="delete">
+                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
+                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
+                        <input type="hidden" name="current_tab" value="pending">
+                        <button type="submit" class="btn btn-xs mbtn-d" title="删除">🗑️</button>
+                    </form>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+            <div class="cmt-empty">🎉 暂无待审核评论</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- ── 已通过 ── -->
+    <div id="tab-approved" class="cmt-panel">
+        <?php if (count($approvedComments) > 0): ?>
+        <div class="mbuilder" style="overflow-x:auto;">
+            <div class="mhead" style="grid-template-columns:44px 1fr 130px 110px auto;">
+                <span>头像</span><span>内容</span><span>邮箱</span><span>时间</span><span>操作</span>
+            </div>
+            <?php foreach ($approvedComments as $cmt): ?>
+            <?php
+                // 从数据库读取该邮箱实际的审核模式，默认为 strict
+                $currentMode = $emailModes[$cmt['email_hash']] ?? 'strict';
+            ?>
+            <div class="cmt-row">
+                <div>
+                    <?php $avatar = getCommentAvatar($cmt['email'], $cmt['user_id'] ?? null); ?>
+                    <?php if (strpos($avatar, 'http') === 0): ?>
+                        <img src="<?php echo htmlspecialchars($avatar); ?>" class="cmt-avatar" alt="avatar"
+                             onerror="this.style.display='none'">
+                    <?php else: ?>
+                        <img src="../<?php echo htmlspecialchars($avatar); ?>" class="cmt-avatar" alt="avatar"
+                             onerror="this.style.display='none'">
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <strong><?php echo htmlspecialchars($cmt['name']); ?></strong>
+                    <span class="cmt-meta">&nbsp;#<?php echo $cmt['id']; ?></span>
+                    <div class="cmt-body"><?php echo nl2br(htmlspecialchars($cmt['content'])); ?></div>
+                    <?php if (!empty($cmt['article_title'])): ?>
+                        <div class="cmt-article">📄 <?php echo htmlspecialchars($cmt['article_title']); ?></div>
+                    <?php endif; ?>
+                </div>
+                <span style="word-break:break-all;color:var(--sub,#888);font-size:.75rem;">
+                    <?php echo htmlspecialchars($cmt['email']); ?>
+                </span>
+                <span style="color:var(--sub,#888);font-size:.75rem;">
+                    <?php echo substr($cmt['created_at'], 0, 16); ?>
+                </span>
+                <div class="cmt-actions">
+                    <!-- 设置邮箱审核模式（正确回显当前模式） -->
+                    <form method="post" style="margin:0;">
+                        <input type="hidden" name="action"      value="update_email_moderation">
+                        <input type="hidden" name="email_hash"  value="<?php echo htmlspecialchars($cmt['email_hash']); ?>">
+                        <input type="hidden" name="current_tab" value="approved">
+                        <select name="mode" style="padding:.25rem .4rem;font-size:.75rem;border:1px solid rgba(155,140,255,.4);border-radius:6px;background:var(--admin-card,#fff);color:inherit;">
+                            <option value="auto"   <?php echo $currentMode === 'auto'   ? 'selected' : ''; ?>>自动通过</option>
+                            <option value="strict" <?php echo $currentMode === 'strict' ? 'selected' : ''; ?>>严格审核</option>
+                        </select>
+                        <button type="submit" class="btn btn-xs" style="font-size:.72rem;">设置</button>
+                    </form>
+                    <form method="post" style="margin:0;"
+                          onsubmit="return confirm('确认删除这条评论？')">
+                        <input type="hidden" name="action"      value="delete">
+                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
+                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
+                        <input type="hidden" name="current_tab" value="approved">
+                        <button type="submit" class="btn btn-xs mbtn-d" title="删除">🗑️</button>
+                    </form>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+            <div class="cmt-empty">暂无已通过的评论</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- ── 评论设置 ── -->
+    <div id="tab-settings" class="cmt-panel">
+        <div class="mbuilder" style="padding:1.4rem;">
+            <p style="margin:0 0 1.2rem;font-size:.83rem;font-weight:700;color:#6c5dfb;">⚙️ 评论功能设置</p>
+            <form method="post">
+                <input type="hidden" name="action"      value="save_comment_settings">
+                <input type="hidden" name="current_tab" value="settings">
+
+                <!-- 开关行 -->
+                <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+                    <label style="display:flex;align-items:center;gap:.45rem;font-size:.85rem;cursor:pointer;">
+                        <input type="checkbox" name="enable_comments"
+                            <?php echo $commentSettings['enable_comments'] ? 'checked' : ''; ?>>
+                        启用评论功能
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.45rem;font-size:.85rem;cursor:pointer;">
+                        <input type="checkbox" name="allow_guest_comments"
+                            <?php echo ($commentSettings['allow_guest_comments'] ?? true) ? 'checked' : ''; ?>>
+                        允许游客评论（无需登录）
+                    </label>
+                </div>
+
+                <div class="settings-grid" style="margin-bottom:1rem;">
+                    <div class="mfg">
+                        <label>默认审核模式</label>
+                        <select name="default_moderation">
+                            <option value="strict" <?php echo $commentSettings['default_moderation']==='strict'?'selected':''; ?>>严格（所有评论需审核）</option>
+                            <option value="auto"   <?php echo $commentSettings['default_moderation']==='auto'  ?'selected':''; ?>>宽松（历史通过用户自动发布）</option>
+                        </select>
+                    </div>
+                    <div class="mfg">
+                        <label>邮箱过滤模式</label>
+                        <select name="email_mode">
+                            <option value="all"       <?php echo $commentSettings['email_mode']==='all'       ?'selected':''; ?>>允许所有邮箱</option>
+                            <option value="whitelist" <?php echo $commentSettings['email_mode']==='whitelist' ?'selected':''; ?>>仅允许白名单</option>
+                            <option value="blacklist" <?php echo $commentSettings['email_mode']==='blacklist' ?'selected':''; ?>>禁止黑名单</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-grid" style="margin-bottom:1.2rem;">
+                    <div class="mfg">
+                        <label>允许的邮箱域名
+                            <small style="font-weight:normal;color:var(--sub,#999);">（每行一个，白名单模式生效）</small>
+                        </label>
+                        <textarea name="allowed_domains" rows="5"
+                            style="padding:.48rem .72rem;border:1px solid var(--admin-border,rgba(155,140,255,.4));border-radius:8px;font-size:.86rem;resize:vertical;background:var(--admin-card,#fff);color:inherit;box-sizing:border-box;width:100%;"><?php
+                            echo htmlspecialchars(implode("\n", $commentSettings['allowed_domains']));
+                        ?></textarea>
+                    </div>
+                    <div class="mfg">
+                        <label>禁止的邮箱域名
+                            <small style="font-weight:normal;color:var(--sub,#999);">（每行一个，黑名单模式生效）</small>
+                        </label>
+                        <textarea name="blocked_domains" rows="5"
+                            style="padding:.48rem .72rem;border:1px solid var(--admin-border,rgba(155,140,255,.4));border-radius:8px;font-size:.86rem;resize:vertical;background:var(--admin-card,#fff);color:inherit;box-sizing:border-box;width:100%;"><?php
+                            echo htmlspecialchars(implode("\n", $commentSettings['blocked_domains']));
+                        ?></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">💾 保存设置</button>
+            </form>
         </div>
     </div>
+
 </div>
+
+<script>
+// ── Tab 切换 + URL hash 持久化 ─────────────────────────────────────────────
+function switchTab(name, el) {
+    document.querySelectorAll('.cmt-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.cmt-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (el) el.classList.add('active');
+    // 更新 URL hash，使刷新后能恢复当前 tab（不触发页面滚动）
+    history.replaceState(null, '', '#tab-' + name);
+}
+
+// 页面加载时：优先读取 URL hash 恢复 tab
+(function () {
+    const hash = location.hash.replace('#tab-', '');
+    const validTabs = ['pending', 'approved', 'settings'];
+    const target = validTabs.includes(hash) ? hash : 'pending';
+    const btn = document.querySelector('.cmt-tab[data-tab="' + target + '"]');
+    switchTab(target, btn);
+})();
+</script>

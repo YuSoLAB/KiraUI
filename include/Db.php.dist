@@ -25,7 +25,11 @@ class Db {
     }
     public static function getInstance() {
         if (self::$instance === null) {
-            self::$instance = new self();
+            try {
+                self::$instance = new self();
+            } catch (\PDOException $e) {
+                return null;
+            }
         }
         return self::$instance->conn;
     }
