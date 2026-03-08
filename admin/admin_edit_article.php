@@ -23,8 +23,9 @@
         <div class="ea-notice ea-notice-error">⚠️ 文章不存在，请检查链接或返回列表。</div>
     <?php else: ?>
 
-    <form method="post" id="articleForm">
-        <input type="hidden" name="action" value="save_article">
+    <form id="articleForm">
+        <input type="hidden" name="type" value="article">
+        <input type="hidden" name="article_action" value="save">
         <?php if (!$isNewArticle): ?>
             <input type="hidden" name="id" value="<?php echo $currentArticle['id']; ?>">
         <?php endif; ?>
@@ -228,8 +229,9 @@
                         <!-- 预览区 -->
                         <div class="ea-cover-preview" id="eaCoverPreview">
                             <?php $ci = $currentArticle['cover_image'] ?? ''; ?>
+                            <?php $ciAdmin = $ci ? preg_replace('#^serve_media\.php#', '../serve_media.php', $ci) : ''; ?>
                             <?php if ($ci): ?>
-                                <img id="eaCoverImg" src="<?php echo htmlspecialchars($ci); ?>" alt="封面图预览">
+                                <img id="eaCoverImg" src="<?php echo htmlspecialchars($ciAdmin); ?>" alt="封面图预览">
                             <?php else: ?>
                                 <div class="ea-cover-placeholder" id="eaCoverPlaceholder"><span>🖼</span><em>暂未设置封面图</em></div>
                                 <img id="eaCoverImg" src="" alt="封面图预览" style="display:none">
@@ -676,10 +678,12 @@ window.eaCloseCoverPicker = function() {
 };
 window.eaConfirmCover = function() {
     if (!_coverSel) return;
-    document.getElementById('ea_cover_image').value = _coverSel.url;
+    const storeUrl   = _coverSel.url;
+    const previewUrl = storeUrl.replace(/^serve_media\.php/, '../serve_media.php');
+    document.getElementById('ea_cover_image').value = storeUrl;
     const img = document.getElementById('eaCoverImg');
     const ph  = document.getElementById('eaCoverPlaceholder');
-    img.src = _coverSel.url;
+    img.src = previewUrl;
     img.style.display = 'block';
     if (ph) ph.style.display = 'none';
     eaCloseCoverPicker();
@@ -912,14 +916,67 @@ document.addEventListener('keydown', function(e) {
         document.getElementById('btnCode').classList.toggle('ea-mode-active', mode === 'code');
     };
 
-    /* ── 表单提交前同步内容 ── */
+    /* ── 表单提交：AJAX 对接 admin_ajax.php ── */
     if (form) {
-        form.addEventListener('submit', function() {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // 1. 同步可视化编辑器内容到隐藏 textarea
             if (eaMode === 'visual') {
                 code.value = visual.innerHTML;
             }
             code.name = 'content';
+
+            // 2. 构建 FormData（已含 type=article, article_action=save, cover_image 等）
+            const fd = new FormData(form);
+
+            // 3. 提交状态
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const origHtml  = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ 保存中…'; }
+
+            // 4. 发送到 admin_ajax.php
+            fetch('admin_ajax.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        _showSaveToast('✅ ' + (data.msg || '保存成功！'), 'success');
+                        // 新建文章保存后跳转到编辑页
+                        if (data.id) {
+                            setTimeout(() => {
+                                window.location.href = '?page=edit_article&id=' + data.id;
+                            }, 800);
+                        }
+                    } else {
+                        _showSaveToast('❌ ' + (data.msg || '保存失败，请重试'), 'error');
+                    }
+                })
+                .catch(err => {
+                    _showSaveToast('❌ 网络错误：' + err.message, 'error');
+                })
+                .finally(() => {
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origHtml; }
+                });
         });
+    }
+
+    /* ── Toast 提示 ── */
+    function _showSaveToast(msg, type) {
+        let t = document.getElementById('_eaSaveToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_eaSaveToast';
+            t.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;'
+                + 'padding:.65rem 1.2rem;border-radius:10px;font-size:.9rem;font-weight:600;'
+                + 'box-shadow:0 4px 18px rgba(0,0,0,.18);transition:opacity .3s;pointer-events:none;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.background = (type === 'success') ? '#27ae60' : '#e74c3c';
+        t.style.color = '#fff';
+        t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
     }
 
     /* ── execCommand 包装 ── */

@@ -292,6 +292,9 @@ try {
                 );
                 $stmt->execute([$title, $excerpt, $content, $date, $tags, $cover_image]);
                 $newId = (int)$db->lastInsertId();
+                // 同步封面图到 article_index
+                $db->prepare("INSERT INTO article_index (id, title, date, excerpt, tags, cover_image) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),date=VALUES(date),excerpt=VALUES(excerpt),tags=VALUES(tags),cover_image=VALUES(cover_image)")
+                  ->execute([$newId, $title, $date, $excerpt, $tags, $cover_image]);
                 _clearArticleCache();
                 echo json_encode(['ok' => true, 'id' => $newId, 'msg' => '文章发布成功！']);
             } else {
@@ -299,6 +302,9 @@ try {
                     "UPDATE articles SET title=?, excerpt=?, content=?, date=?, tags=?, cover_image=?, updated_at=NOW() WHERE id=?"
                 );
                 $stmt->execute([$title, $excerpt, $content, $date, $tags, $cover_image, $id]);
+                // 同步封面图到 article_index
+                $db->prepare("INSERT INTO article_index (id, title, date, excerpt, tags, cover_image) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),date=VALUES(date),excerpt=VALUES(excerpt),tags=VALUES(tags),cover_image=VALUES(cover_image)")
+                  ->execute([$id, $title, $date, $excerpt, $tags, $cover_image]);
                 _clearArticleCache();
                 echo json_encode(['ok' => true, 'msg' => '文章保存成功！']);
             }
@@ -368,6 +374,9 @@ try {
             ]);
             $newId = (int)$db->lastInsertId();
             $db->prepare("DELETE FROM drafts WHERE id=?")->execute([$id]);
+            // 同步封面图到 article_index
+            $db->prepare("INSERT INTO article_index (id, title, date, excerpt, tags, cover_image) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),date=VALUES(date),excerpt=VALUES(excerpt),tags=VALUES(tags),cover_image=VALUES(cover_image)")
+              ->execute([$newId, $draft['title'], $draft['date'], $draft['excerpt'], $draft['tags'], $draft['cover_image'] ?? '']);
             _clearArticleCache();
             echo json_encode(['ok' => true, 'id' => $newId, 'msg' => '草稿已发布为正式文章！']);
         }
@@ -565,6 +574,18 @@ function _clearArticleCache(): void {
         ) as $f) {
             @unlink($f);
         }
+    }
+
+    // 通过 FileCache API 精确删除，确保封面图更新后缓存立即失效
+    try {
+        if (file_exists(ROOT_DIR . '/cache/FileCache.php')) {
+            require_once ROOT_DIR . '/cache/FileCache.php';
+            $cache = new FileCache();
+            $cache->delete('article_index');
+            $cache->delete('all_articles_basic');
+        }
+    } catch (Exception $e) {
+        error_log('_clearArticleCache FileCache error: ' . $e->getMessage());
     }
 }
 

@@ -19,8 +19,8 @@ class ArticleIndex {
                 $tags = array_map('trim', $tags);
                 $tagsStr = implode(',', $tags);
                 $stmt = $this->db->prepare("INSERT INTO article_index 
-                    (id, title, date, excerpt, tags, word_count, read_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    (id, title, date, excerpt, tags, word_count, read_time, cover_image)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $article['id'],
                     $article['title'] ?? '无标题',
@@ -28,7 +28,8 @@ class ArticleIndex {
                     $article['excerpt'] ?? '',
                     $tagsStr,
                     $article['word_count'] ?? 0,
-                    $article['read_time'] ?? 0
+                    $article['read_time'] ?? 0,
+                    $article['cover_image'] ?? ''
                 ]);                
                 $index[$article['id']] = [
                     'id' => $article['id'],
@@ -38,6 +39,7 @@ class ArticleIndex {
                     'tags' => $tags,
                     'word_count' => $article['word_count'] ?? 0,
                     'read_time' => $article['read_time'] ?? 0,
+                    'cover_image' => $article['cover_image'] ?? '',
                     'modified' => strtotime($article['updated_at'] ?? $article['created_at'])
                 ];
             }
@@ -62,7 +64,9 @@ class ArticleIndex {
             if ($index === false || empty($index)) {
                 // LEFT JOIN articles 以获取 cover_image（article_index 表无此字段）
                 $stmt = $this->db->query(
-                    "SELECT ai.*, a.cover_image
+                    "SELECT ai.id, ai.title, ai.date, ai.excerpt, ai.tags,
+                            ai.word_count, ai.read_time, ai.modified,
+                            COALESCE(a.cover_image, ai.cover_image, '') AS cover_image
                      FROM article_index ai
                      LEFT JOIN articles a ON ai.id = a.id
                      ORDER BY ai.date DESC, ai.id DESC"
@@ -93,7 +97,9 @@ class ArticleIndex {
     public function getArticleInfo($id) {
         try {
             $stmt = $this->db->prepare(
-                "SELECT ai.*, a.cover_image
+                "SELECT ai.id, ai.title, ai.date, ai.excerpt, ai.tags,
+                        ai.word_count, ai.read_time, ai.modified,
+                        COALESCE(a.cover_image, ai.cover_image, '') AS cover_image
                  FROM article_index ai
                  LEFT JOIN articles a ON ai.id = a.id
                  WHERE ai.id = ?"
