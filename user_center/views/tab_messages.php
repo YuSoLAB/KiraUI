@@ -139,6 +139,15 @@ $siteRoot = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'])), '/');
 .empty-state{display:flex;flex-direction:column;align-items:center;padding:3rem 1rem;color:#aaa;gap:.8rem}
 .empty-state svg{width:48px;height:48px;opacity:.4}
 .empty-state p{margin:0;font-size:.9rem}
+@media (max-width:600px){
+    .notif-item{padding:.75rem .85rem;gap:.7rem;}
+    .notif-avatar{width:36px;height:36px;}
+    .notif-meta{font-size:.82rem;}
+    .messages-header{flex-direction:column;align-items:flex-start;}
+    .messages-toolbar{width:100%;justify-content:flex-end;}
+    .notif-actions{flex-wrap:wrap;gap:.5rem;}
+    .notif-link,.btn-delete-notif{font-size:.82rem;}
+}
 </style>
 
 <script>

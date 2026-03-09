@@ -261,7 +261,127 @@ function levelLabel(string $level): string {
             </tbody>
         </table>
         </div><!-- /.login-history-table-wrap -->
+
+        <!-- 移动端卡片视图 -->
+        <div class="login-history-cards">
+        <?php foreach ($loginHistory as $idx => $row):
+            if ($idx === 0 && count($loginHistory) >= 2) {
+                $rowAnomaly = compareLoginRecords($row, $loginHistory[1]);
+            } else {
+                $rowAnomaly = ['level' => 'normal', 'reasons' => []];
+            }
+            $displayIp = $row['ipv4'] ?? $row['ipv6'] ?? '未知';
+        ?>
+        <div class="lh-card <?php echo $rowAnomaly['level'] !== 'normal' ? 'lh-card-' . $rowAnomaly['level'] : ''; ?>">
+            <div class="lh-card-top">
+                <span class="lh-card-time">
+                    <?php echo htmlspecialchars(date('Y-m-d H:i', strtotime($row['login_at']))); ?>
+                    <?php if ($idx === 0): ?><span class="badge badge-info">本次</span><?php endif; ?>
+                </span>
+                <?php if ($rowAnomaly['level'] !== 'normal'): ?>
+                    <span class="badge <?php echo levelClass($rowAnomaly['level']); ?>">
+                        <?php echo levelLabel($rowAnomaly['level']); ?>
+                    </span>
+                <?php else: ?>
+                    <span class="badge badge-normal">✅ 正常</span>
+                <?php endif; ?>
+            </div>
+            <div class="lh-card-row">
+                <span class="lh-label">IP</span>
+                <span class="ip-mono lh-val">
+                    <?php echo htmlspecialchars($displayIp); ?>
+                    <?php if ($row['is_local']): ?><span class="badge badge-info">内网</span><?php endif; ?>
+                    <?php if ($row['is_proxy']): ?><span class="badge badge-warn">代理</span><?php endif; ?>
+                </span>
+            </div>
+            <div class="lh-card-row">
+                <span class="lh-label">设备</span>
+                <span class="lh-val">
+                    <?php echo deviceIcon($row['device_type'] ?? 'desktop'); ?>
+                    <?php
+                    $dtMap = ['desktop' => '桌面', 'mobile' => '手机', 'tablet' => '平板'];
+                    echo $dtMap[$row['device_type'] ?? 'desktop'] ?? ($row['device_type'] ?? '');
+                    ?> · <?php echo htmlspecialchars($row['os'] ?? ''); ?>
+                </span>
+            </div>
+            <div class="lh-card-row">
+                <span class="lh-label">浏览器</span>
+                <span class="lh-val"><?php echo htmlspecialchars($row['browser'] ?? ''); ?></span>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        </div><!-- /.login-history-cards -->
+
         <?php endif; ?>
     </div>
 
 </div><!-- /#security -->
+
+<style>
+/* ── 移动端登录历史：表格隐藏，卡片显示 ─────────────────────── */
+.login-history-cards { display: none; }
+@media (max-width: 700px) {
+    .login-history-table-wrap { display: none; }
+    .login-history-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 4px;
+    }
+}
+.lh-card {
+    border: 1px solid var(--border-color, rgba(0,0,0,.09));
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: var(--card-bg, #fff);
+    transition: box-shadow .2s;
+}
+.lh-card:hover { box-shadow: 0 3px 14px rgba(108,93,251,.1); }
+.lh-card-alert { border-color: #f5a0aa; background: #fff8f8; }
+.lh-card-warn  { border-color: #f5dfa0; background: #fffbf0; }
+.dark-mode .lh-card { background: var(--dark-card, #1e1e2e); border-color: rgba(176,160,255,.15); }
+.dark-mode .lh-card-alert { border-color: #7a2030; background: #2a1018; }
+.dark-mode .lh-card-warn  { border-color: #7a6020; background: #262010; }
+.lh-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.lh-card-time { font-size: .82rem; font-weight: 600; color: var(--text-secondary, #555); }
+.lh-card-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+    border-top: 1px solid rgba(0,0,0,.05);
+    font-size: .84rem;
+}
+.dark-mode .lh-card-row { border-top-color: rgba(255,255,255,.06); }
+.lh-label {
+    flex-shrink: 0;
+    width: 44px;
+    color: var(--text-muted, #999);
+    font-size: .77rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.lh-val { color: var(--text, #222); word-break: break-all; }
+.dark-mode .lh-val { color: var(--dark-text, #e8e4ff); }
+
+/* ── 当前登录信息网格移动端优化 ──────────────────────────────── */
+@media (max-width: 600px) {
+    .session-info-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .session-info-card.full-width { grid-column: 1 !important; }
+}
+
+/* ── 登录异常横幅移动端 ───────────────────────────────────────── */
+@media (max-width: 600px) {
+    .login-alert-banner { font-size: .84rem; padding: .9rem 1rem; }
+}
+</style>

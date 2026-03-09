@@ -209,9 +209,20 @@ a.fav-title:hover { text-decoration:underline; }
 .dark-mode .btn-unfav:hover { background:#4a1020; color:#f8a0aa; }
 .btn-unfav.loading      { opacity:.6; pointer-events:none; }
 @media (max-width:600px) {
-    .fav-item    { flex-wrap:wrap; }
-    .fav-cover   { width:100%; height:120px; }
-    .fav-actions { flex-direction:row; width:100%; justify-content:flex-end; }
+    .fav-item    { flex-wrap:wrap; padding:12px; gap:10px; }
+    .fav-cover   { width:100%; height:110px; border-radius:10px; }
+    .fav-cover img { width:100%; height:100%; object-fit:cover; }
+    .fav-body    { width:100%; }
+    .fav-actions {
+        flex-direction:row;
+        width:100%;
+        justify-content:flex-end;
+        padding-top:4px;
+        border-top:1px solid rgba(0,0,0,.06);
+        margin-top:4px;
+    }
+    .dark-mode .fav-actions { border-top-color:rgba(255,255,255,.06); }
+    .btn-read, .btn-unfav { flex:1; justify-content:center; font-size:.82rem; }
 }
 </style>
 

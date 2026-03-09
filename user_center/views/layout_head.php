@@ -8,6 +8,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>用户中心 - <?php echo htmlspecialchars($user['nickname']); ?></title>
     <link rel="stylesheet" href="../style.css">
     <style>
@@ -138,9 +139,24 @@
             align-items: start;
         }
         @media (max-width: 768px) {
-            .user-center-content { grid-template-columns: 1fr; }
-            .header-left { width: 100%; justify-content: space-between; }
-            .user-center-header { flex-direction: column; align-items: flex-start; }
+            .user-center-content { grid-template-columns: 1fr; gap: 0; }
+            .header-left { gap: 8px; }
+            .user-center-header {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                margin-bottom: 18px;
+                padding-bottom: 14px;
+            }
+            .user-center-title { font-size: 1.15rem; }
+            .user-center-card {
+                padding: 16px 14px;
+                border-radius: 18px;
+            }
+            .user-center-wrap {
+                padding: 12px 10px;
+            }
         }
 
         /* ── 侧边栏 — 与 .sidebar-widget 对齐 ─────────────────────── */
@@ -190,6 +206,37 @@
         body.dark-mode .sidebar-menu a:hover { color: var(--dark-vio); background: rgba(176,160,255,.1); }
         body.dark-mode .sidebar-menu a.active { background: rgba(176,160,255,.12); color: var(--dark-vio); border-color: rgba(176,160,255,.22); }
 
+        /* ── 移动端侧边栏变为水平滚动标签栏 ────────────────────────── */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: static;
+                padding: 8px 6px;
+                border-radius: 14px;
+                margin-bottom: 14px;
+                box-shadow: none;
+            }
+            .sidebar-menu {
+                display: flex;
+                flex-direction: row;
+                gap: 6px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                padding-bottom: 2px;
+            }
+            .sidebar-menu::-webkit-scrollbar { display: none; }
+            .sidebar-menu li { margin-bottom: 0; flex-shrink: 0; }
+            .sidebar-menu a {
+                padding: 8px 14px;
+                font-size: .82rem;
+                gap: 5px;
+                white-space: nowrap;
+                border-radius: 10px;
+                transform: none !important;
+            }
+            .sidebar-menu a svg { width: 15px; height: 15px; }
+        }
+
         /* ── 主内容区 ────────────────────────────────────────────── */
         .main-content { display: flex; flex-direction: column; gap: 1.25rem; }
 
@@ -205,6 +252,12 @@
         body.dark-mode .profile-section {
             background: var(--dark-card);
             border-color: var(--dark-card-border);
+        }
+        @media (max-width: 768px) {
+            .profile-section {
+                padding: 1.1rem 1rem;
+                border-radius: 14px;
+            }
         }
 
         /* 分区标题 — 与 .article-content h2 对齐 */
@@ -245,7 +298,24 @@
         }
         body.dark-mode .avatar-container { border-bottom-color: var(--dark-card-border); }
         @media (max-width: 600px) {
-            .avatar-container { flex-direction: column; text-align: center; }
+            .avatar-container {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+                align-items: center;
+                margin-bottom: 1.2rem;
+                padding-bottom: 1.2rem;
+            }
+            .avatar-info { width: 100%; }
+            .avatar-upload { justify-content: center; }
+            .form-actions { flex-direction: column; align-items: stretch; }
+            .form-actions .btn, .form-actions .btn-logout {
+                width: 100%;
+                justify-content: center;
+                padding: .7rem 1rem;
+                font-size: .9rem;
+            }
+            .btn-logout { text-align: center; }
         }
         .avatar-preview {
             width: 88px; height: 88px;
