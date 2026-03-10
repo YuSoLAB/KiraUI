@@ -17,27 +17,40 @@
            Primary: #6c5dfb  ·  Card border: rgba(155,140,255,.3)
            ══════════════════════════════════════════════════════ */
 
+        /* ── 全局 box-sizing 修正（防止 width:100% + padding 溢出）── */
+        .user-center-wrap *,
+        .user-center-wrap *::before,
+        .user-center-wrap *::after {
+            box-sizing: border-box;
+        }
+
         /* ── 页面包裹层 ────────────────────────────────────────── */
         .user-center-wrap {
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            padding: clamp(20px, 4vw, 48px);
-            padding-top: clamp(28px, 5vw, 56px);
+            padding: clamp(16px, 4vw, 48px);
+            padding-top: clamp(20px, 5vw, 56px);
             position: relative;
             z-index: 1;
+            /* 防止包裹层自身溢出 */
+            overflow-x: hidden;
         }
 
         /* ── 主卡片 ────────────────────────────────────────────── */
         .user-center-card {
-            width: min(1020px, 96vw);
+            /* 改用 100% 宽度，由 wrap 的 padding 控制边距，避免 vw 叠加 */
+            width: 100%;
+            max-width: 1020px;
             background: var(--card);
             border: 1px solid var(--card-border);
             border-radius: var(--radius-xl);
-            padding: clamp(22px, 4vw, 38px);
+            padding: clamp(16px, 3vw, 38px);
             box-shadow: 0 4px 28px rgba(108,93,251,.09), 0 1px 4px rgba(108,93,251,.05);
             margin: 0 auto;
             transition: background .3s, border-color .3s, box-shadow .3s;
+            /* 内容溢出时剪裁，不允许卡片撑开 */
+            overflow: hidden;
         }
         body.dark-mode .user-center-card {
             background: var(--dark-card);
@@ -65,24 +78,26 @@
         }
 
         .user-center-title {
-            font-size: clamp(1.35rem, 3.5vw, 1.85rem);
+            font-size: clamp(1.15rem, 3.5vw, 1.85rem);
             font-weight: 900;
             letter-spacing: -.02em;
             margin: 0;
             color: var(--text);
+            /* 防止长标题撑开 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        /* 品牌色仅用于标题装饰点 */
-        .user-center-title span {
-            color: var(--primary);
-        }
+        .user-center-title span { color: var(--primary); }
         body.dark-mode .user-center-title { color: var(--dark-text); }
 
-        /* 主题切换按钮 — 与 navbar 的 .theme-toggle 对齐 */
+        /* 主题切换按钮 */
         .theme-toggle-header {
             background: var(--primary-soft);
             border: 1px solid var(--card-border);
             border-radius: var(--radius-md);
-            width: 38px; height: 38px;
+            width: 36px; height: 36px;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -102,7 +117,7 @@
             color: var(--dark-vio);
         }
 
-        /* 返回首页按钮 — 复用 .back-link 风格 */
+        /* 返回首页按钮 */
         .back-home {
             display: inline-flex;
             align-items: center;
@@ -115,6 +130,8 @@
             border-radius: var(--radius-md);
             border: 1px solid var(--card-border);
             background: var(--primary-soft);
+            white-space: nowrap;
+            flex-shrink: 0;
             transition: color .14s, background .14s, transform .14s;
         }
         .back-home:hover {
@@ -134,32 +151,37 @@
         /* ── 内容网格 ────────────────────────────────────────────── */
         .user-center-content {
             display: grid;
-            grid-template-columns: 240px 1fr;
-            gap: 22px;
+            grid-template-columns: 220px 1fr;
+            gap: 20px;
             align-items: start;
+            /* 关键：防止网格列超出父容器 */
+            min-width: 0;
+            width: 100%;
         }
+        /* 关键：所有网格直接子项必须设 min-width:0，否则内容会撑破列宽 */
+        .user-center-content > * {
+            min-width: 0;
+        }
+
+        /* ── 移动端全局响应 ──────────────────────────────────────── */
         @media (max-width: 768px) {
-            .user-center-content { grid-template-columns: 1fr; gap: 0; }
-            .header-left { gap: 8px; }
+            .user-center-wrap  { padding: 10px 8px; }
+            .user-center-card  { padding: 14px 12px; border-radius: 16px; }
             .user-center-header {
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
-                gap: 10px;
-                margin-bottom: 18px;
-                padding-bottom: 14px;
+                gap: 8px;
+                margin-bottom: 14px;
+                padding-bottom: 12px;
             }
-            .user-center-title { font-size: 1.15rem; }
-            .user-center-card {
-                padding: 16px 14px;
-                border-radius: 18px;
-            }
-            .user-center-wrap {
-                padding: 12px 10px;
+            .user-center-content {
+                grid-template-columns: 1fr;
+                gap: 0;
             }
         }
 
-        /* ── 侧边栏 — 与 .sidebar-widget 对齐 ─────────────────────── */
+        /* ── 侧边栏 ─────────────────────────────────────────────── */
         .sidebar {
             background: var(--card);
             border: 1px solid var(--card-border);
@@ -206,19 +228,19 @@
         body.dark-mode .sidebar-menu a:hover { color: var(--dark-vio); background: rgba(176,160,255,.1); }
         body.dark-mode .sidebar-menu a.active { background: rgba(176,160,255,.12); color: var(--dark-vio); border-color: rgba(176,160,255,.22); }
 
-        /* ── 移动端侧边栏变为水平滚动标签栏 ────────────────────────── */
+        /* ── 移动端：侧边栏变为水平滚动 Tab 栏 ───────────────────── */
         @media (max-width: 768px) {
             .sidebar {
                 position: static;
-                padding: 8px 6px;
-                border-radius: 14px;
-                margin-bottom: 14px;
+                padding: 6px;
+                border-radius: 12px;
+                margin-bottom: 12px;
                 box-shadow: none;
             }
             .sidebar-menu {
                 display: flex;
                 flex-direction: row;
-                gap: 6px;
+                gap: 4px;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
                 scrollbar-width: none;
@@ -227,51 +249,57 @@
             .sidebar-menu::-webkit-scrollbar { display: none; }
             .sidebar-menu li { margin-bottom: 0; flex-shrink: 0; }
             .sidebar-menu a {
-                padding: 8px 14px;
-                font-size: .82rem;
+                padding: 7px 13px;
+                font-size: .81rem;
                 gap: 5px;
                 white-space: nowrap;
-                border-radius: 10px;
+                border-radius: 9px;
                 transform: none !important;
             }
-            .sidebar-menu a svg { width: 15px; height: 15px; }
+            .sidebar-menu a svg { width: 14px; height: 14px; }
         }
 
         /* ── 主内容区 ────────────────────────────────────────────── */
-        .main-content { display: flex; flex-direction: column; gap: 1.25rem; }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            /* 关键：防止主内容撑破网格 */
+            min-width: 0;
+            overflow: hidden;
+        }
 
-        /* 内容分区卡片 — 与 .article-content / .sidebar-widget 一致 */
+        /* 内容分区卡片 */
         .profile-section {
             background: var(--card);
             border: 1px solid var(--card-border);
             border-radius: var(--radius-lg);
-            padding: 1.6rem 1.75rem;
+            padding: 1.5rem 1.6rem;
             box-shadow: 0 2px 12px rgba(108,93,251,.06);
             transition: background .3s, border-color .3s;
+            /* 防止内部内容撑出 */
+            overflow: hidden;
+            word-break: break-word;
         }
         body.dark-mode .profile-section {
             background: var(--dark-card);
             border-color: var(--dark-card-border);
         }
         @media (max-width: 768px) {
-            .profile-section {
-                padding: 1.1rem 1rem;
-                border-radius: 14px;
-            }
+            .profile-section { padding: 1rem .9rem; border-radius: 12px; }
         }
 
-        /* 分区标题 — 与 .article-content h2 对齐 */
+        /* 分区标题 */
         .profile-section h2 {
             font-size: 1.1rem;
             font-weight: 800;
             margin: 0 0 1.4rem;
             color: var(--text);
-            letter-spacing: -.015em;
-            padding-bottom: .65rem;
-            border-bottom: 2px solid var(--primary-soft);
             display: flex;
             align-items: center;
-            gap: .45rem;
+            gap: .5rem;
+            padding-bottom: .7rem;
+            border-bottom: 1px solid rgba(155,140,255,.12);
         }
         .profile-section h2::before {
             content: '';
@@ -364,6 +392,8 @@
             transition: border-color .2s, box-shadow .2s, background .2s;
             box-sizing: border-box;
             outline: none;
+            /* 防止输入框撑出父容器 */
+            max-width: 100%;
         }
         .form-group input::placeholder { color: rgba(96,96,128,.45); }
         .form-group input:hover {
@@ -393,7 +423,7 @@
 
         .form-actions { display: flex; align-items: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
 
-        /* 退出登录 — 危险操作按钮 */
+        /* 退出登录 */
         .btn-logout {
             display: inline-flex;
             align-items: center;
@@ -429,7 +459,7 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── 提示消息 — 复用 style.css .message ─────────────────── */
+        /* ── 提示消息 ─────────────────────────────────────────────── */
         .message {
             display: flex;
             align-items: flex-start;
@@ -443,16 +473,8 @@
             border: 1px solid transparent;
             animation: uc-fadeIn .3s ease both;
         }
-        .message.success {
-            background: rgba(39,174,96,.09);
-            color: #157a3a;
-            border-color: rgba(39,174,96,.22);
-        }
-        .message.error {
-            background: rgba(235,77,105,.08);
-            color: #c0284a;
-            border-color: rgba(235,77,105,.22);
-        }
+        .message.success { background: rgba(39,174,96,.09); color: #157a3a; border-color: rgba(39,174,96,.22); }
+        .message.error   { background: rgba(235,77,105,.08); color: #c0284a; border-color: rgba(235,77,105,.22); }
         body.dark-mode .message.success { background: rgba(39,174,96,.08); color: #6fcf97; border-color: rgba(39,174,96,.18); }
         body.dark-mode .message.error   { background: rgba(235,77,105,.07); color: #ff7ca3; border-color: rgba(235,77,105,.2); }
 
@@ -471,9 +493,8 @@
         .empty-state p { font-size: .9rem; margin: 0; }
         body.dark-mode .empty-state { color: var(--dark-sub); }
 
-        /* 进度条着色与品牌色一致 */
+        /* 进度条着色 */
         #progressBar { background: var(--primary) !important; }
-
         #themeToggle { display: none; }
     </style>
 </head>
