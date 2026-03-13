@@ -319,6 +319,119 @@ try {
         ]);
     }
 
+    // ═══ CHECK_RESUME ════════════════════════════════════════════════════
+    // 返回已上传的分片编号列表，供前端断点续传
+    elseif ($act === 'check_resume') {
+        $fileHash = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['file_hash'] ?? '');
+        if (!$fileHash) { echo json_encode(['ok' => false, 'msg' => '参数错误']); exit; }
+
+        $tmpDir   = MEDIA_BASE . '_tmp_chunks/' . $fileHash . '/';
+        $uploaded = [];
+        if (is_dir($tmpDir)) {
+            foreach (scandir($tmpDir) as $f) {
+                if (is_numeric($f)) $uploaded[] = (int)$f;
+            }
+        }
+        echo json_encode(['ok' => true, 'uploaded_chunks' => $uploaded]);
+    }
+
+    // ═══ CHUNK_UPLOAD ════════════════════════════════════════════════════
+    // 单个分片上传，所有分片到齐后自动合并为最终文件
+    elseif ($act === 'chunk_upload') {
+        global $IMG_EXTS, $VIDEO_EXTS, $AUDIO_EXTS, $DENY_EXTS;
+
+        $fileHash   = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['file_hash']   ?? '');
+        $chunkIndex = (int)($_POST['chunk_index'] ?? -1);
+        $chunkTotal = (int)($_POST['chunk_total'] ?? 0);
+        $fileName   = sanitizeFilename($_POST['file_name'] ?? '');
+        $fileSize   = (int)($_POST['file_size']  ?? 0);
+
+        if (!$fileHash || $chunkIndex < 0 || $chunkTotal < 1 || !$fileName) {
+            echo json_encode(['ok' => false, 'msg' => '参数错误']); exit;
+        }
+
+        // 扩展名安全校验
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        if (in_array($ext, $DENY_EXTS, true)) {
+            echo json_encode(['ok' => false, 'msg' => "禁止上传此类型文件 (.{$ext})"]); exit;
+        }
+
+        // 分片临时目录
+        $tmpBase = MEDIA_BASE . '_tmp_chunks/';
+        $tmpDir  = $tmpBase . $fileHash . '/';
+        if (!file_exists($tmpDir)) mkdir($tmpDir, 0755, true);
+
+        // 写入 .htaccess 防止 Web 直访分片目录
+        $htFile = $tmpBase . '.htaccess';
+        if (!file_exists($htFile)) file_put_contents($htFile, "Deny from all\n");
+
+        // 校验上传
+        if (empty($_FILES['chunk']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
+            $errCode = $_FILES['chunk']['error'] ?? -1;
+            echo json_encode(['ok' => false, 'msg' => "分片上传错误 ({$errCode})"]); exit;
+        }
+
+        $chunkPath = $tmpDir . $chunkIndex;
+        if (!move_uploaded_file($_FILES['chunk']['tmp_name'], $chunkPath)) {
+            echo json_encode(['ok' => false, 'msg' => '分片保存失败，请检查目录权限']); exit;
+        }
+
+        // 检查是否所有分片均已就绪
+        $ready = 0;
+        for ($i = 0; $i < $chunkTotal; $i++) {
+            if (file_exists($tmpDir . $i)) $ready++;
+        }
+
+        if ($ready < $chunkTotal) {
+            // 还未凑齐，告知前端继续
+            echo json_encode(['ok' => true, 'done' => false, 'chunk' => $chunkIndex, 'ready' => $ready, 'total' => $chunkTotal]);
+            exit;
+        }
+
+        // ── 所有分片到齐，合并 ──────────────────────────────────────────
+        $folder = detectFolder($ext, $IMG_EXTS, $VIDEO_EXTS, $AUDIO_EXTS);
+        $dstDir = MEDIA_BASE . $folder . '/';
+        if (!file_exists($dstDir)) mkdir($dstDir, 0755, true);
+
+        $finalName = uniqueName($dstDir, $fileName);
+        $finalPath = $dstDir . $finalName;
+
+        $fp = fopen($finalPath, 'wb');
+        if (!$fp) {
+            echo json_encode(['ok' => false, 'msg' => '无法创建目标文件，请检查权限']); exit;
+        }
+        for ($i = 0; $i < $chunkTotal; $i++) {
+            $data = file_get_contents($tmpDir . $i);
+            fwrite($fp, $data);
+            unlink($tmpDir . $i);
+        }
+        fclose($fp);
+        // 删除临时目录
+        @rmdir($tmpDir);
+
+        // 清理超过 24 小时的遗留分片目录（顺带清理）
+        if (is_dir($tmpBase)) {
+            $threshold = time() - 86400;
+            foreach (scandir($tmpBase) as $d) {
+                if ($d === '.' || $d === '..') continue;
+                $full = $tmpBase . $d;
+                if (is_dir($full) && filemtime($full) < $threshold) {
+                    foreach (glob($full . '/*') as $cf) @unlink($cf);
+                    @rmdir($full);
+                }
+            }
+        }
+
+        echo json_encode([
+            'ok'     => true,
+            'done'   => true,
+            'name'   => $finalName,
+            'folder' => $folder,
+            'size_h' => fmtSize(filesize($finalPath)),
+            'url'    => 'admin_media_ajax.php?act=serve&folder=' . urlencode($folder) . '&name=' . urlencode($finalName),
+        ]);
+    }
+
     else {
         echo json_encode(['ok' => false, 'msg' => '未知操作: ' . htmlspecialchars($act)]);
     }

@@ -42,6 +42,23 @@
         data-tab="announcement" data-url="?page=announcement">弹窗公告管理</div>
     <div class="tab <?php echo $currentPage === 'comments' ? 'active' : ''; ?>" 
         data-tab="comments" data-url="?page=comments">评论管理</div>
+    <div class="tab <?php echo $currentPage === 'profile_review' ? 'active' : ''; ?>" 
+        data-tab="profile_review" data-url="?page=profile_review">
+        信息变更审核
+        <?php
+        // 显示待审核数量徽章
+        try {
+            $db = Db::getInstance();
+            $cnt = (int)$db->query("SELECT COUNT(*) FROM pending_profile_changes WHERE status='pending'")->fetchColumn();
+            if ($cnt > 0) {
+                echo '<span style="display:inline-flex;align-items:center;justify-content:center;
+                      background:#f87171;color:#fff;font-size:.65rem;font-weight:700;
+                      min-width:16px;height:16px;border-radius:8px;padding:0 4px;
+                      vertical-align:middle;margin-left:5px;">' . $cnt . '</span>';
+            }
+        } catch (Exception $e) {}
+        ?>
+    </div>
     <div class="tab <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>" 
         data-tab="smtp" data-url="?page=smtp">SMTP管理</div>
     <div class="tab <?php echo $currentPage === 'email_notify' ? 'active' : ''; ?>" 
@@ -50,6 +67,8 @@
         data-tab="users" data-url="?page=users">用户管理</div>
     <div class="tab <?php echo $currentPage === 'landing' ? 'active' : ''; ?>" 
         data-tab="landing" data-url="?page=landing">展示页面管理</div>
+    <div class="tab <?php echo $currentPage === 'social' ? 'active' : ''; ?>" 
+        data-tab="social" data-url="?page=social">社交展示</div>
     <div class="tab <?php echo $currentPage === 'update' ? 'active' : ''; ?>" 
         data-tab="update" data-url="?page=update">系统更新</div>
 </div>

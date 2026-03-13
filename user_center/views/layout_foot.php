@@ -50,7 +50,7 @@
             }
 
             const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            const maxSize    = 2 * 1024 * 1024;
+            const maxSize    = 20 * 1024 * 1024;
 
             if (!validTypes.includes(file.type)) {
                 alert('请选择 JPEG、PNG 或 GIF 格式的图片');
@@ -59,7 +59,7 @@
                 return;
             }
             if (file.size > maxSize) {
-                alert('图片大小不能超过 2MB');
+                alert('图片大小不能超过 20MB');
                 this.value = '';
                 uploadButton.disabled = true;
                 return;

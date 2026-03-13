@@ -4,6 +4,10 @@
  * 专用 AJAX 端点，在任何 HTML 输出之前处理请求并返回 JSON。
  * 由 admin_menus.php / admin_pages.php / admin_*.php 中的 JS fetch 调用。
  */
+
+// ── 最先开启输出缓冲，防止 PHP Notice/Warning 污染 JSON 响应 ──
+ob_start();
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -13,13 +17,16 @@ if (!defined('ROOT_DIR')) {
 
 // 安全检查：必须已登录
 if (empty($_SESSION['admin_logged_in'])) {
+    ob_clean();
     http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['ok' => false, 'msg' => '未登录或会话已过期']);
     exit;
 }
 
 require_once ROOT_DIR . '/include/Db.php';
 require_once ROOT_DIR . '/include/Config.php';
+ob_clean(); // 清除 require 可能产生的任何杂散输出
 header('Content-Type: application/json; charset=utf-8');
 
 $type = $_POST['type'] ?? '';
@@ -191,6 +198,17 @@ try {
             echo json_encode(['ok' => true, 'msg' => '网站信息已保存成功！']);
         }
 
+        // ── 社交链接 ─────────────────────────────────────────
+        elseif ($act === 'save_social') {
+            $socialKeys = ['qq','wechat','weibo','x','facebook','instagram','youtube','github','steam','tiktok','douyin','bilibili','telegram','discord','line'];
+            $data = [];
+            foreach ($socialKeys as $k) {
+                $data['social_' . $k] = trim($_POST['social_' . $k] ?? '');
+            }
+            $config->batchSet($data);
+            echo json_encode(['ok' => true, 'msg' => '社交链接已保存成功！']);
+        }
+
         // ── 图片上传（multipart, 单独走 upload_image 子动作）─
         elseif ($act === 'upload_image') {
             $uploadDir = ROOT_DIR . '/img/';
@@ -198,22 +216,46 @@ try {
 
             $messages = [];
             $errors   = [];
+            $uploadedFiles = [];  // 记录成功上传的文件，供前端刷新图库
 
-            // Logo (.ico)
+            // Logo (png/jpg/jpeg/gif) → logo.png（仅用于导航栏）
             if (!empty($_FILES['logo']['name'])) {
                 $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
-                if ($ext === 'ico') {
-                    if (move_uploaded_file($_FILES['logo']['tmp_name'], $uploadDir . 'logo.ico')) {
-                        $messages[] = 'Logo 上传成功！';
+                if (in_array($ext, ['png','jpg','jpeg','gif','ico'], true)) {
+                    if (move_uploaded_file($_FILES['logo']['tmp_name'], $uploadDir . 'logo.png')) {
+                        $messages[] = '导航栏 Logo 上传成功！';
+                        $uploadedFiles['logo'] = 'logo.png';
                     } else {
-                        $errors[] = 'Logo 上传失败，请检查目录权限';
+                        $errors[] = '导航栏 Logo 上传失败，请检查目录权限';
                     }
                 } else {
-                    $errors[] = 'Logo 必须是 .ico 格式';
+                    $errors[] = '导航栏 Logo 必须是 png/jpg/jpeg/gif 格式';
                 }
             }
 
-            // Banner (png/jpg/jpeg/gif)
+            // Favicon (.ico / .png / .svg) → favicon.{ext}（浏览器标签图标）
+            if (!empty($_FILES['favicon']['name'])) {
+                $ext = strtolower(pathinfo($_FILES['favicon']['name'], PATHINFO_EXTENSION));
+                if (in_array($ext, ['ico', 'png', 'svg'], true)) {
+                    $destName = 'favicon.' . $ext;
+                    // 清除其他格式的旧 favicon，防止多文件共存时浏览器取错
+                    foreach (['ico', 'png', 'svg'] as $oldExt) {
+                        if ($oldExt !== $ext && file_exists($uploadDir . 'favicon.' . $oldExt)) {
+                            @unlink($uploadDir . 'favicon.' . $oldExt);
+                        }
+                    }
+                    if (move_uploaded_file($_FILES['favicon']['tmp_name'], $uploadDir . $destName)) {
+                        $messages[] = 'Favicon 上传成功（' . $destName . '）！';
+                        $uploadedFiles['favicon'] = $destName;
+                    } else {
+                        $errors[] = 'Favicon 上传失败，请检查目录权限';
+                    }
+                } else {
+                    $errors[] = 'Favicon 必须是 .ico / .png / .svg 格式';
+                }
+            }
+
+            // Banner (png/jpg/jpeg/gif) — 兼容旧单文件字段
             if (!empty($_FILES['banner']['name'])) {
                 $ext = strtolower(pathinfo($_FILES['banner']['name'], PATHINFO_EXTENSION));
                 if (in_array($ext, ['png','jpg','jpeg','gif'], true)) {
@@ -227,6 +269,7 @@ try {
                     $dest = $uploadDir . 'banner' . ($maxNum + 1) . '.png';
                     if (move_uploaded_file($_FILES['banner']['tmp_name'], $dest)) {
                         $messages[] = '背景图片上传成功！';
+                        $uploadedFiles['banner'] = 'banner' . ($maxNum + 1) . '.png';
                     } else {
                         $errors[] = '背景图片上传失败，请检查目录权限';
                     }
@@ -238,8 +281,163 @@ try {
             if (!empty($errors)) {
                 echo json_encode(['ok' => false, 'msg' => implode(' ', $errors)]);
             } else {
-                echo json_encode(['ok' => true, 'msg' => implode(' ', $messages) ?: '没有文件被上传']);
+                echo json_encode(['ok' => true, 'msg' => implode(' ', $messages) ?: '没有文件被上传', 'files' => $uploadedFiles]);
             }
+        }
+
+        // ── 分片上传：检查已有分片（断点续传查询）────────────────
+        elseif ($act === 'check_chunks') {
+            $uploadId   = preg_replace('/[^a-f0-9]/', '', $_POST['upload_id'] ?? '');
+            $totalChunks = max(1, (int)($_POST['chunk_total'] ?? 0));
+            if (!$uploadId) { echo json_encode(['ok' => false, 'msg' => '参数错误']); exit; }
+
+            $tmpDir = sys_get_temp_dir() . '/imgchunks/' . $uploadId . '/';
+            $done = [];
+            if (is_dir($tmpDir)) {
+                for ($i = 0; $i < $totalChunks; $i++) {
+                    if (file_exists($tmpDir . 'chunk_' . $i)) { $done[] = $i; }
+                }
+            }
+            echo json_encode(['ok' => true, 'done' => $done]);
+        }
+
+        // ── 分片上传：接收单个分片并在完成时拼合 ─────────────────
+        elseif ($act === 'upload_chunk') {
+            $uploadId   = preg_replace('/[^a-f0-9]/', '', $_POST['upload_id'] ?? '');
+            $chunkIndex = (int)($_POST['chunk_index'] ?? -1);
+            $chunkTotal = (int)($_POST['chunk_total'] ?? 0);
+            $fileType   = in_array($_POST['file_type'] ?? '', ['logo','favicon','banner'], true)
+                          ? $_POST['file_type'] : 'banner';
+            $origName   = basename($_POST['orig_name'] ?? 'file.png');
+
+            if (!$uploadId || $chunkIndex < 0 || $chunkTotal < 1) {
+                echo json_encode(['ok' => false, 'msg' => '分片参数错误']); exit;
+            }
+            if (empty($_FILES['chunk']['tmp_name']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
+                $errCode = $_FILES['chunk']['error'] ?? -1;
+                echo json_encode(['ok' => false, 'msg' => "分片数据为空或上传出错（错误码 {$errCode}）"]); exit;
+            }
+
+            $tmpDir = sys_get_temp_dir() . '/imgchunks/' . $uploadId . '/';
+            if (!is_dir($tmpDir) && !mkdir($tmpDir, 0755, true)) {
+                echo json_encode(['ok' => false, 'msg' => '无法创建临时目录，请检查服务器 /tmp 权限']); exit;
+            }
+
+            $chunkPath = $tmpDir . 'chunk_' . $chunkIndex;
+            if (!move_uploaded_file($_FILES['chunk']['tmp_name'], $chunkPath)) {
+                echo json_encode(['ok' => false, 'msg' => '分片保存失败']); exit;
+            }
+
+            // 检查是否所有分片已到齐
+            $allDone = true;
+            for ($i = 0; $i < $chunkTotal; $i++) {
+                if (!file_exists($tmpDir . 'chunk_' . $i)) { $allDone = false; break; }
+            }
+            if (!$allDone) {
+                echo json_encode(['ok' => true, 'complete' => false, 'msg' => "分片 {$chunkIndex} 已保存"]);
+                exit;
+            }
+
+            // ── 全部分片到齐，拼合文件 ──
+            $uploadDir = ROOT_DIR . '/img/';
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+                echo json_encode(['ok' => false, 'msg' => '图片目录不存在且无法创建']); exit;
+            }
+
+            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+            if ($fileType === 'logo') {
+                $destFile = 'logo.png';
+                $label    = '导航栏 Logo（logo.png）';
+            } elseif ($fileType === 'favicon') {
+                if (!in_array($ext, ['ico','png','svg'], true)) {
+                    echo json_encode(['ok' => false, 'msg' => 'Favicon 必须是 .ico / .png / .svg']); exit;
+                }
+                $destFile = 'favicon.' . $ext;
+                $label    = '网站 Favicon（' . $destFile . '）';
+                foreach (['ico','png','svg'] as $oldExt) {
+                    if ($oldExt !== $ext && file_exists($uploadDir . 'favicon.' . $oldExt)) {
+                        @unlink($uploadDir . 'favicon.' . $oldExt);
+                    }
+                }
+            } else { // banner
+                if (!in_array($ext, ['png','jpg','jpeg','gif'], true)) {
+                    echo json_encode(['ok' => false, 'msg' => '背景图必须是 png/jpg/jpeg/gif 格式']); exit;
+                }
+                $existing = glob($uploadDir . 'banner*.png') ?: [];
+                $maxNum   = 0;
+                foreach ($existing as $f) {
+                    if (preg_match('/banner(\d+)\.png$/', basename($f), $m)) {
+                        $maxNum = max($maxNum, (int)$m[1]);
+                    }
+                }
+                $destFile = 'banner' . ($maxNum + 1) . '.png';
+                $label    = $destFile;
+            }
+
+            // 拼合分片
+            $tmpAssemble = $tmpDir . 'assembled_' . $uploadId;
+            $out = @fopen($tmpAssemble, 'wb');
+            if (!$out) {
+                echo json_encode(['ok' => false, 'msg' => '无法创建临时拼合文件']); exit;
+            }
+            for ($i = 0; $i < $chunkTotal; $i++) {
+                $chunkData = @file_get_contents($tmpDir . 'chunk_' . $i);
+                if ($chunkData === false) {
+                    fclose($out); @unlink($tmpAssemble);
+                    echo json_encode(['ok' => false, 'msg' => "分片 {$i} 读取失败"]); exit;
+                }
+                fwrite($out, $chunkData);
+                @unlink($tmpDir . 'chunk_' . $i);
+            }
+            fclose($out);
+
+            $destPath = $uploadDir . $destFile;
+            if (!rename($tmpAssemble, $destPath)) {
+                // rename 跨分区可能失败，改用 copy+unlink
+                if (!copy($tmpAssemble, $destPath)) {
+                    @unlink($tmpAssemble);
+                    echo json_encode(['ok' => false, 'msg' => '文件写入目标目录失败，请检查目录权限']); exit;
+                }
+                @unlink($tmpAssemble);
+            }
+            @rmdir($tmpDir); // 尝试清理（非空时安全跳过）
+
+            echo json_encode([
+                'ok'        => true,
+                'complete'  => true,
+                'msg'       => '文件上传成功！',
+                'file'      => $destFile,
+                'label'     => $label,
+                'file_type' => $fileType,
+            ]);
+        }
+
+        // ── 删除图片 ──────────────────────────────────────────
+        elseif ($act === 'delete_image') {
+            $uploadDir = ROOT_DIR . '/img/';
+            $file      = basename($_POST['file'] ?? '');
+            // 仅允许删除 banner*.png、logo.png、favicon.ico/png/svg
+            if ($file && preg_match('/^(banner\d+\.png|logo\.png|favicon\.(ico|png|svg))$/', $file)) {
+                $path = $uploadDir . $file;
+                if (file_exists($path) && @unlink($path)) {
+                    echo json_encode(['ok' => true, 'msg' => $file . ' 已删除']);
+                } else {
+                    echo json_encode(['ok' => false, 'msg' => '文件不存在或无法删除']);
+                }
+            } else {
+                echo json_encode(['ok' => false, 'msg' => '不允许删除该文件']);
+            }
+        }
+        elseif ($act === 'save_landing') {
+            $mode = $_POST['landing_mode'] ?? 'replace';
+            if (!in_array($mode, ['replace', 'cover'], true)) { $mode = 'replace'; }
+            $config->batchSet([
+                'landing_enabled' => !empty($_POST['landing_enabled']) ? '1' : '0',
+                'landing_code'    => $_POST['landing_code'] ?? '',
+                'landing_mode'    => $mode,
+            ]);
+            echo json_encode(['ok' => true, 'msg' => '展示页面配置已保存成功！']);
         }
 
         // ── SMTP ─────────────────────────────────────────────
@@ -316,6 +514,40 @@ try {
             $stmt->execute([$id]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             echo json_encode(['ok' => (bool)$row, 'data' => $row ?: null]);
+        }
+
+        // ── 切换置顶 ─────────────────────────────────────────
+        elseif ($act === 'toggle_pin') {
+            $id = intval($_POST['id'] ?? 0);
+            if ($id <= 0) {
+                echo json_encode(['ok' => false, 'msg' => '无效的文章 ID']);
+                exit;
+            }
+
+            $chk = $db->prepare("SELECT pinned_at FROM article_index WHERE id = ?");
+            $chk->execute([$id]);
+            $row = $chk->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row) {
+                echo json_encode(['ok' => false, 'msg' => '文章不存在']);
+                exit;
+            }
+
+            if ($row['pinned_at'] === null) {
+                $now = date('Y-m-d H:i:s');
+                $db->prepare("UPDATE article_index SET pinned_at = ? WHERE id = ?")->execute([$now, $id]);
+                $db->prepare("UPDATE articles       SET pinned_at = ? WHERE id = ?")->execute([$now, $id]);
+                $msg    = '文章已置顶';
+                $pinned = true;
+            } else {
+                $db->prepare("UPDATE article_index SET pinned_at = NULL WHERE id = ?")->execute([$id]);
+                $db->prepare("UPDATE articles       SET pinned_at = NULL WHERE id = ?")->execute([$id]);
+                $msg    = '已取消置顶';
+                $pinned = false;
+            }
+
+            _clearArticleCache();
+            echo json_encode(['ok' => true, 'msg' => $msg, 'pinned' => $pinned]);
         }
 
         else { echo json_encode(['ok' => false, 'msg' => '未知文章操作']); }
@@ -536,6 +768,148 @@ try {
 
         } else {
             echo json_encode(['ok' => false, 'msg' => '未知缓存操作']);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 用户设置（user）— 注册邮箱域名白/黑名单
+    // ═══════════════════════════════════════════════════════
+    elseif ($type === 'user') {
+        require_once __DIR__ . '/admin_functions.php';
+        $act = $_POST['user_action'] ?? '';
+
+        if ($act === 'save_registration_settings') {
+            $enabled = ($_POST['registration_enabled'] ?? '1') === '0' ? '0' : '1';
+            require_once ROOT_DIR . '/include/Config.php';
+            Config::getInstance()->set('registration_enabled', $enabled);
+            echo json_encode(['ok' => true, 'msg' => $enabled === '1' ? '注册已开放' : '注册已关闭']);
+        } elseif ($act === 'save_email_settings') {
+            $settings = [
+                'email_mode'      => $_POST['email_mode'] ?? 'all',
+                'allowed_domains' => array_values(array_filter(array_map('trim',
+                    explode("\n", str_replace("\r", "\n", $_POST['allowed_domains'] ?? ''))))),
+                'blocked_domains' => array_values(array_filter(array_map('trim',
+                    explode("\n", str_replace("\r", "\n", $_POST['blocked_domains'] ?? ''))))),
+            ];
+            saveRegistrationEmailSettings($settings);
+            echo json_encode(['ok' => true, 'msg' => '注册邮箱设置已保存！']);
+        } else {
+            echo json_encode(['ok' => false, 'msg' => '未知用户操作']);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 评论设置（comment）— 域名过滤 / 功能开关
+    // ═══════════════════════════════════════════════════════
+    elseif ($type === 'comment') {
+        require_once __DIR__ . '/admin_functions.php';
+        require_once __DIR__ . '/comment_functions.php';
+        $act = $_POST['comment_action'] ?? '';
+
+        if ($act === 'save_settings') {
+            $settings = [
+                'email_mode'           => $_POST['email_mode']         ?? 'all',
+                'default_moderation'   => $_POST['default_moderation'] ?? 'strict',
+                'enable_comments'      => !empty($_POST['enable_comments']),
+                'allow_guest_comments' => !empty($_POST['allow_guest_comments']),
+                'allowed_domains'      => array_values(array_filter(array_map('trim',
+                    explode("\n", str_replace("\r", "\n", $_POST['allowed_domains'] ?? ''))))),
+                'blocked_domains'      => array_values(array_filter(array_map('trim',
+                    explode("\n", str_replace("\r", "\n", $_POST['blocked_domains'] ?? ''))))),
+            ];
+            saveCommentSettings($settings);
+            echo json_encode(['ok' => true, 'msg' => '评论设置已保存！']);
+        } else {
+            echo json_encode(['ok' => false, 'msg' => '未知评论操作']);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 信息变更审核（profile_review）
+    // ═══════════════════════════════════════════════════════
+    elseif ($type === 'profile_review') {
+        $act = $_POST['action'] ?? '';
+
+        // ── 开关审核功能 ─────────────────────────────────────
+        if ($act === 'toggle_setting') {
+            $enabled = ($_POST['enabled'] ?? '0') === '1' ? '1' : '0';
+            Config::getInstance()->set('profile_review_enabled', $enabled);
+            echo json_encode(['ok' => true]);
+        }
+
+        // ── 通过变更申请 ─────────────────────────────────────
+        elseif ($act === 'approve') {
+            $id = intval($_POST['id'] ?? 0);
+            if ($id <= 0) { echo json_encode(['ok' => false, 'msg' => '无效的 ID']); exit; }
+
+            $stmt = $db->prepare(
+                "SELECT * FROM pending_profile_changes WHERE id = ? AND status = 'pending'"
+            );
+            $stmt->execute([$id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) { echo json_encode(['ok' => false, 'msg' => '记录不存在或已处理']); exit; }
+
+            if ($row['type'] === 'nickname') {
+                $db->prepare("UPDATE users SET nickname = ?, updated_at = NOW() WHERE id = ?")
+                   ->execute([$row['new_value'], $row['user_id']]);
+            } else {
+                // 头像：将 pending 文件重命名为正式文件
+                $avatarDir  = ROOT_DIR . '/uploads/avatars/';
+                $pendingFile = $avatarDir . $row['new_value'];
+
+                // 删除该用户旧头像（所有扩展名）
+                $extMap = ['jpg','jpeg','png','gif'];
+                foreach ($extMap as $e) {
+                    $old = $avatarDir . $row['user_id'] . '.' . $e;
+                    if (file_exists($old) && $old !== $pendingFile) { @unlink($old); }
+                }
+
+                // 将 pending_{id}.ext → {user_id}.ext
+                $ext     = pathinfo($row['new_value'], PATHINFO_EXTENSION);
+                $newFile = $row['user_id'] . '.' . $ext;
+                if (file_exists($pendingFile)) {
+                    rename($pendingFile, $avatarDir . $newFile);
+                }
+
+                $db->prepare("UPDATE users SET avatar = ?, updated_at = NOW() WHERE id = ?")
+                   ->execute([$newFile, $row['user_id']]);
+            }
+
+            $db->prepare(
+                "UPDATE pending_profile_changes SET status='approved', reviewed_at=NOW() WHERE id=?"
+            )->execute([$id]);
+
+            echo json_encode(['ok' => true, 'msg' => '已通过']);
+        }
+
+        // ── 拒绝变更申请 ─────────────────────────────────────
+        elseif ($act === 'reject') {
+            $id     = intval($_POST['id'] ?? 0);
+            $reason = mb_substr(trim($_POST['reason'] ?? ''), 0, 200);
+            if ($id <= 0) { echo json_encode(['ok' => false, 'msg' => '无效的 ID']); exit; }
+
+            $stmt = $db->prepare(
+                "SELECT * FROM pending_profile_changes WHERE id = ? AND status = 'pending'"
+            );
+            $stmt->execute([$id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) { echo json_encode(['ok' => false, 'msg' => '记录不存在或已处理']); exit; }
+
+            // 头像拒绝时删除 pending 文件
+            if ($row['type'] === 'avatar') {
+                $pendingFile = ROOT_DIR . '/uploads/avatars/' . $row['new_value'];
+                if (file_exists($pendingFile)) { @unlink($pendingFile); }
+            }
+
+            $db->prepare(
+                "UPDATE pending_profile_changes SET status='rejected', reject_reason=?, reviewed_at=NOW() WHERE id=?"
+            )->execute([$reason ?: null, $id]);
+
+            echo json_encode(['ok' => true, 'msg' => '已拒绝']);
+        }
+
+        else {
+            echo json_encode(['ok' => false, 'msg' => '未知审核操作']);
         }
     }
 

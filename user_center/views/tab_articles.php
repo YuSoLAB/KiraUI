@@ -208,6 +208,36 @@ a.fav-title:hover { text-decoration:underline; }
 .btn-unfav:hover        { background:#ffe0e6; color:#c0392b; border-color:#f5a0aa; }
 .dark-mode .btn-unfav:hover { background:#4a1020; color:#f8a0aa; }
 .btn-unfav.loading      { opacity:.6; pointer-events:none; }
+
+/* ── 夜间模式 ──────────────────────────────────────────────── */
+body.dark-mode .fav-count { color: rgba(176,160,255,.55); }
+body.dark-mode .fav-item {
+    background: rgba(36,34,60,.85);
+    border-color: rgba(176,160,255,.13);
+}
+body.dark-mode .fav-item:hover:not(.fav-deleted) {
+    box-shadow: 0 4px 20px rgba(108,93,251,.22);
+    border-color: rgba(176,160,255,.28);
+}
+body.dark-mode .fav-deleted {
+    background: rgba(28,27,48,.6);
+    opacity: .55;
+}
+body.dark-mode a.fav-title          { color: #b0a0ff; }
+body.dark-mode a.fav-title:hover    { color: #d0c4ff; }
+body.dark-mode .fav-title-deleted   { color: rgba(176,160,255,.4); }
+body.dark-mode .fav-excerpt         { color: rgba(200,196,230,.65); }
+body.dark-mode .fav-meta            { color: rgba(176,160,255,.45); }
+body.dark-mode .fav-meta-time       { color: rgba(176,160,255,.7); }
+body.dark-mode .btn-read            { background: var(--primary, #6c5dfb); color: #fff !important; }
+body.dark-mode .btn-unfav {
+    border-color: rgba(176,160,255,.18);
+    color: rgba(176,160,255,.6);
+    background: transparent;
+}
+body.dark-mode .btn-unfav:hover     { background: rgba(220,50,80,.15); color: #ff8fab; border-color: rgba(220,50,80,.35); }
+body.dark-mode .fav-actions         { border-top-color: rgba(255,255,255,.06); }
+
 @media (max-width:600px) {
     .fav-item    { flex-wrap:wrap; padding:12px; gap:10px; }
     .fav-cover   { width:100%; height:110px; border-radius:10px; }

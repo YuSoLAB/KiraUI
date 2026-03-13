@@ -53,18 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             break;
 
         case 'save_comment_settings':
-            $settings = [
-                'email_mode'           => $_POST['email_mode']          ?? 'all',
-                'default_moderation'   => $_POST['default_moderation']  ?? 'strict',
-                'enable_comments'      => isset($_POST['enable_comments']),
-                'allow_guest_comments' => isset($_POST['allow_guest_comments']),
-                'allowed_domains'      => isset($_POST['allowed_domains'])
-                    ? array_filter(array_map('trim', explode("\n", $_POST['allowed_domains']))) : [],
-                'blocked_domains'      => isset($_POST['blocked_domains'])
-                    ? array_filter(array_map('trim', explode("\n", $_POST['blocked_domains']))) : [],
-            ];
-            saveCommentSettings($settings);
-            $msg = '评论设置已保存'; $mt = 'success';
+            // 已迁移至 admin_ajax.php (type=comment, comment_action=save_settings)
+            // 此分支仅作向后兼容保留
+            $msg = '请使用新版 AJAX 接口保存设置'; $mt = 'error';
             $returnTab = 'settings';
             break;
     }
@@ -356,10 +347,7 @@ body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select 
     <div id="tab-settings" class="cmt-panel">
         <div class="mbuilder" style="padding:1.4rem;">
             <p style="margin:0 0 1.2rem;font-size:.83rem;font-weight:700;color:#6c5dfb;">⚙️ 评论功能设置</p>
-            <form method="post">
-                <input type="hidden" name="action"      value="save_comment_settings">
-                <input type="hidden" name="current_tab" value="settings">
-
+            <form id="commentSettingsForm">
                 <!-- 开关行 -->
                 <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;">
                     <label style="display:flex;align-items:center;gap:.45rem;font-size:.85rem;cursor:pointer;">
@@ -413,7 +401,10 @@ body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select 
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary">💾 保存设置</button>
+                <div style="display:flex;align-items:center;gap:.8rem;">
+                    <button type="submit" id="commentSettingsBtn" class="btn btn-primary">💾 保存设置</button>
+                    <span id="commentSettingsMsg" style="font-size:.82rem;display:none;"></span>
+                </div>
             </form>
         </div>
     </div>
@@ -438,5 +429,40 @@ function switchTab(name, el) {
     const target = validTabs.includes(hash) ? hash : 'pending';
     const btn = document.querySelector('.cmt-tab[data-tab="' + target + '"]');
     switchTab(target, btn);
+})();
+
+// ── 评论设置 AJAX 保存（无刷新、无白屏）────────────────────────────────────
+(function () {
+    var form = document.getElementById('commentSettingsForm');
+    if (!form) return;
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('commentSettingsBtn');
+        var msg = document.getElementById('commentSettingsMsg');
+        var orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '保存中…';
+        msg.style.display = 'none';
+
+        var fd = new FormData(form);
+        fd.append('type', 'comment');
+        fd.append('comment_action', 'save_settings');
+
+        try {
+            var r = await fetch('admin_ajax.php', { method: 'POST', body: fd });
+            var d = await r.json();
+            msg.textContent = d.msg || (d.ok ? '已保存' : '保存失败');
+            msg.style.color  = d.ok ? '#27ae60' : '#e74c3c';
+            msg.style.display = 'inline';
+            setTimeout(function () { msg.style.display = 'none'; }, 3000);
+        } catch (err) {
+            msg.textContent = '网络错误，请重试';
+            msg.style.color = '#e74c3c';
+            msg.style.display = 'inline';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = orig;
+        }
+    });
 })();
 </script>

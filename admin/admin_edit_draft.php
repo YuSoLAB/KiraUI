@@ -23,8 +23,9 @@
         <div class="ea-notice ea-notice-error">⚠️ 草稿不存在，请检查链接或返回列表。</div>
     <?php else: ?>
 
-    <form method="post" id="draftForm">
-        <input type="hidden" name="action" value="save_draft">
+    <form id="draftForm">
+        <input type="hidden" name="type"         value="draft">
+        <input type="hidden" name="draft_action" value="save">
         <?php if (!$isNewDraft): ?>
             <input type="hidden" name="id" value="<?php echo $currentDraft['id']; ?>">
         <?php endif; ?>
@@ -226,9 +227,9 @@
                             👁 预览草稿
                         </a>
                         <!-- 发布为文章 -->
-                        <button type="submit" name="action" value="publish_draft"
+                        <button type="button" id="drPublishBtn"
                                 class="btn btn-success" style="width:100%"
-                                onclick="return confirm('确定要将此草稿发布为正式文章吗？')">
+                                onclick="drPublishDraft()">
                             🚀 发布为文章
                         </button>
                         <?php endif; ?>
@@ -295,13 +296,33 @@
     const code   = document.getElementById('drCode');
     const form   = document.getElementById('draftForm');
 
+    /* ── Toast 提示 ── */
+    function _showSaveToast(msg, type) {
+        let t = document.getElementById('_drSaveToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_drSaveToast';
+            t.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;'
+                + 'padding:.65rem 1.2rem;border-radius:10px;font-size:.9rem;font-weight:600;'
+                + 'box-shadow:0 4px 18px rgba(0,0,0,.18);transition:opacity .3s;pointer-events:none;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.background = (type === 'success') ? '#27ae60' : '#e74c3c';
+        t.style.color = '#fff';
+        t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+    }
+    window._drShowToast = _showSaveToast;
+
     /* ── 工具栏点击不抢走编辑器焦点（保留选区） ── */
-    /* select 元素的下拉依赖 mousedown 默认行为，需排除在外 */
     document.getElementById('drToolbar').addEventListener('mousedown', function(e) {
         if (e.target.tagName === 'SELECT') return;
         e.preventDefault();
     });
 
+    /* ── 模式切换 ── */
     window.drSwitchMode = function(mode) {
         if (mode === drMode) return;
         if (mode === 'code') {
@@ -322,13 +343,114 @@
         document.getElementById('drBtnCode').classList.toggle('ea-mode-active', mode === 'code');
     };
 
+    /* ── 构建并发送 FormData 到 admin_ajax.php ── */
+    function _submitDraft(extraFields, successCb) {
+        if (drMode === 'visual') code.value = visual.innerHTML;
+        code.name = 'content';
+        const fd = new FormData(form);
+        if (extraFields) {
+            Object.entries(extraFields).forEach(([k, v]) => fd.set(k, v));
+        }
+        return fetch('admin_ajax.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    _showSaveToast('✅ ' + (data.msg || '操作成功！'), 'success');
+                    if (successCb) successCb(data);
+                } else {
+                    _showSaveToast('❌ ' + (data.msg || '操作失败，请重试'), 'error');
+                }
+                return data;
+            })
+            .catch(err => {
+                _showSaveToast('❌ 网络错误：' + err.message, 'error');
+            });
+    }
+
+    /* ── 表单提交：保存草稿 ── */
     if (form) {
-        form.addEventListener('submit', function() {
-            if (drMode === 'visual') code.value = visual.innerHTML;
-            code.name = 'content';
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const origHtml  = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ 保存中…'; }
+
+            _submitDraft(null, function(data) {
+                // 新建草稿保存后跳转到编辑页
+                if (data.id) {
+                    setTimeout(() => {
+                        window.location.href = '?page=edit_draft&id=' + data.id;
+                    }, 800);
+                }
+            }).finally(() => {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origHtml; }
+            });
         });
     }
 
+    /* ── 发布草稿为正式文章 ── */
+    window.drPublishDraft = function() {
+        if (!confirm('确定要将此草稿发布为正式文章吗？')) return;
+        const btn = document.getElementById('drPublishBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '⏳ 发布中…'; }
+
+        _submitDraft({ draft_action: 'publish' }, function(data) {
+            if (data.id) {
+                setTimeout(() => {
+                    window.location.href = '?page=edit_article&id=' + data.id;
+                }, 900);
+            }
+        }).finally(() => {
+            if (btn) { btn.disabled = false; btn.innerHTML = '🚀 发布为文章'; }
+        });
+    };
+
+    /* ── 自动保存（30 秒，仅编辑现有草稿时） ── */
+    (function initAutoSave() {
+        const idInput = form ? form.querySelector('input[name="id"]') : null;
+        if (!idInput) return; // 新建草稿不自动保存
+        let _asTimer = null;
+        let _asLabel = null;
+
+        function scheduleAutoSave() {
+            clearTimeout(_asTimer);
+            _asTimer = setTimeout(doAutoSave, 30000);
+        }
+
+        function doAutoSave() {
+            if (drMode === 'visual') code.value = visual.innerHTML;
+            code.name = 'content';
+            const fd = new FormData(form);
+            fetch('admin_ajax.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        _showSaveToast('💾 草稿已自动保存', 'success');
+                        _updateAutoSaveTime();
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function _updateAutoSaveTime() {
+            if (!_asLabel) {
+                _asLabel = document.createElement('div');
+                _asLabel.style.cssText = 'font-size:.72rem;color:var(--sub,#aaa);text-align:center;margin-top:.3rem;';
+                const tip = document.querySelector('.mtip');
+                if (tip) tip.parentNode.insertBefore(_asLabel, tip);
+            }
+            const now = new Date();
+            _asLabel.textContent = '⏱ 最后自动保存：' + now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+        }
+
+        visual.addEventListener('input', scheduleAutoSave);
+        code.addEventListener('input', scheduleAutoSave);
+        form.querySelectorAll('input,textarea,select').forEach(el => {
+            el.addEventListener('change', scheduleAutoSave);
+        });
+    })();
+
+    /* ── execCommand 包装 ── */
     window.drCmd = function(cmd, val) {
         if (drMode !== 'visual') return;
         visual.focus();
@@ -411,6 +533,7 @@
         }
     };
 
+    /* ── 字数统计 ── */
     function updateWordCount() {
         const text = drMode === 'visual'
             ? (visual.innerText || visual.textContent || '')
@@ -424,6 +547,7 @@
     code.addEventListener('input', updateWordCount);
     updateWordCount();
 
+    /* ── Tab 缩进（HTML 代码模式）── */
     code.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -433,6 +557,7 @@
         }
     });
 
+    /* ── Shift+Enter 插入 <br>（可视化模式）── */
     visual.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault();
@@ -548,7 +673,7 @@ window.drCloseFilePicker=function(){document.getElementById('drFileModal').class
 window.drFileTab=function(folder,btn){_dFileFolder=folder;document.querySelectorAll('#drFileTabs .ea-picker-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');drFileFilter();};
 window.drFileFilter=function(){const q=document.getElementById('drFileSearch').value.toLowerCase().trim();const fl=_dFileAll.filter(f=>(_dFileFolder==='all'||f.folder===_dFileFolder)&&(!q||f.name.toLowerCase().includes(q)));const g=document.getElementById('drFileGrid');if(!fl.length){g.innerHTML='<div class="ea-picker-empty">📭 暂无文件</div>';return;}g.innerHTML=fl.map(f=>{const pub=toPublicUrl(f.url),fExt=ext(f.name),isImg=IMG_EXTS.has(fExt),icon=isImg?'🖼️':VIDEO_EXTS.has(fExt)?'🎬':AUDIO_EXTS.has(fExt)?'🎵':(EXT_ICONS[fExt]||'📁');const th=isImg?`<img src="${he(f.url)}" loading="lazy" alt="${he(f.name)}" onerror="this.style.display='none'">`:`<span class="ea-picker-thumb-icon">${icon}</span>`;const fd2=he(JSON.stringify({name:f.name,folder:f.folder,url:pub,ext:fExt}));return`<div class="ea-picker-item" onclick="_drSelectFile(this,${fd2})"><div class="ea-picker-thumb">${th}</div><div class="ea-picker-name">${he(f.name)}</div></div>`;}).join('');};
 window._drSelectFile=function(el,f){document.querySelectorAll('#drFileGrid .ea-picker-item').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');_dFileSel=f;const isImg=IMG_EXTS.has(f.ext),isVid=VIDEO_EXTS.has(f.ext);let b='';if(isImg){b=`<button type="button" class="btn btn-primary" onclick="drInsertFile('img')">🖼 插入图片</button><button type="button" class="btn btn-secondary" onclick="drInsertFile('link')">🔗 链接</button>`;}else if(isVid){b=`<button type="button" class="btn btn-primary" onclick="drInsertFile('video')">▶ 插入视频</button><button type="button" class="btn btn-secondary" onclick="drInsertFile('link')">🔗 链接</button>`;}else{b=`<button type="button" class="btn btn-primary" onclick="drInsertFile('download')">⬇ 下载</button><button type="button" class="btn btn-secondary" onclick="drInsertFile('link')">🔗 链接</button>`;}document.getElementById('drFileInsertOpts').innerHTML=b;};
-window.drInsertFile=function(mode){if(!_dFileSel)return;const f=_dFileSel;let sc=mode==='img'?`[image url="${f.url}" alt="${f.name}"]`:mode==='video'?`[video url="${f.url}"]`:mode==='download'?`[download text="${f.name}" url="${f.url}"]`:`<a href="${f.url}" target="_blank" rel="noopener">${f.name}</a>`;const visual=document.getElementById('drVisual'),code=document.getElementById('drCode'),isVisual=document.getElementById('btnDrVisual')?.classList.contains('ea-mode-active');if(isVisual&&mode!=='link'){visual.focus();document.execCommand('insertText',false,sc);}else if(isVisual){visual.focus();document.execCommand('insertHTML',false,sc);}else{const s=code.selectionStart,e=code.selectionEnd;code.value=code.value.slice(0,s)+sc+code.value.slice(e);code.selectionStart=code.selectionEnd=s+sc.length;code.focus();}drCloseFilePicker();};
+window.drInsertFile=function(mode){if(!_dFileSel)return;const f=_dFileSel;let sc=mode==='img'?`[image url="${f.url}" alt="${f.name}"]`:mode==='video'?`[video url="${f.url}"]`:mode==='download'?`[download text="${f.name}" url="${f.url}"]`:`<a href="${f.url}" target="_blank" rel="noopener">${f.name}</a>`;const visual=document.getElementById('drVisual'),code=document.getElementById('drCode');const isVisual=(typeof drMode!=='undefined'?drMode:window._drMode)==='visual';if(isVisual&&mode!=='link'){visual.focus();document.execCommand('insertText',false,sc);}else if(isVisual){visual.focus();document.execCommand('insertHTML',false,sc);}else{const s=code.selectionStart,e=code.selectionEnd;code.value=code.value.slice(0,s)+sc+code.value.slice(e);code.selectionStart=code.selectionEnd=s+sc.length;code.focus();}drCloseFilePicker();};
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){drCloseCoverPicker();drCloseFilePicker();}});
 })();

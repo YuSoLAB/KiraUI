@@ -9,7 +9,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>用户中心 - <?php echo htmlspecialchars($user['nickname']); ?></title>
+    <title>用户中心 - <?php echo htmlspecialchars($user['nickname'] ?: $user['username']); ?></title>
     <link rel="stylesheet" href="../style.css">
     <style>
         /* ══════════════════════════════════════════════════════

@@ -44,8 +44,15 @@ unset($_mediaDirs, $_d);
 
     <!-- ── 上传进度条 ─────────────────────────────────────────────── -->
     <div class="ml-progress-wrap" id="mlProgressWrap" style="display:none">
+        <div class="ml-progress-header">
+            <span id="mlProgressFile" class="ml-progress-file">准备上传...</span>
+            <span id="mlProgressPct"  class="ml-progress-pct">0%</span>
+        </div>
         <div class="ml-progress-bar"><div id="mlProgressBar"></div></div>
-        <span id="mlProgressTxt" class="ml-progress-txt">上传中...</span>
+        <div class="ml-progress-footer">
+            <span id="mlProgressTxt"   class="ml-progress-txt"></span>
+            <span id="mlProgressSpeed" class="ml-progress-speed"></span>
+        </div>
     </div>
 
     <!-- ── 分类标签 ─────────────────────────────────────────────── -->
@@ -351,7 +358,7 @@ function mlRenderGrid() {
             };
             // For images show tiny thumbnail in list mode
             const thumbCell = IMG_EXTS.has(f.ext)
-                ? `<img src="${escaped.url}" class="ml-list-thumb" alt=""
+                ? `<img src="${escaped.url}" class="ml-list-thumb" alt="" draggable="false"
                         onerror="this.outerHTML='<span class=ml-list-icon>${icon}</span>'">`
                 : `<span class="ml-list-icon">${icon}</span>`;
 
@@ -407,7 +414,7 @@ function mlRenderGrid() {
 
 function mlThumbHtml(f) {
     if (IMG_EXTS.has(f.ext)) {
-        return `<img src="${_he(f.url)}" alt="${_he(f.name)}" loading="lazy"
+        return `<img src="${_he(f.url)}" alt="${_he(f.name)}" loading="lazy" draggable="false"
                      onerror="this.style.display='none';this.parentNode.querySelector('.ml-thumb-icon').style.display='flex'">
                 <span class="ml-thumb-icon" style="display:none">🖼️</span>`;
     }
@@ -424,6 +431,10 @@ function _he(s) {
 }
 
 // ─── Upload ───────────────────────────────────────────────────────────────
+const ML_CHUNK_SIZE  = 2 * 1024 * 1024;   // 2 MB 每片
+const ML_MAX_RETRY   = 3;                  // 单片最多重试次数
+const ML_RETRY_DELAY = 1500;               // 重试等待基础 ms
+
 window.mlTriggerUpload = function() {
     document.getElementById('mlFileInput').click();
 };
@@ -432,76 +443,200 @@ window.mlHandleFileInput = function(input) {
     input.value = '';
 };
 
-async function mlUploadFiles(fileList) {
-    const wrap = document.getElementById('mlProgressWrap');
-    const bar  = document.getElementById('mlProgressBar');
-    const txt  = document.getElementById('mlProgressTxt');
+/** 根据文件元数据生成稳定指纹（无需哈希，不依赖内容）*/
+function mlFileHash(file) {
+    const raw = file.name + '|' + file.size + '|' + file.lastModified;
+    return btoa(unescape(encodeURIComponent(raw)))
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(0, 40);
+}
 
-    wrap.style.display = 'flex';
-    bar.style.width    = '0%';
-    bar.style.transition = 'none';
-    txt.textContent    = `正在上传 ${fileList.length} 个文件...`;
+/** 查询服务器上已上传的分片列表（断点续传）*/
+async function mlCheckResume(fileHash) {
+    try {
+        const fd = new FormData();
+        fd.append('act',       'check_resume');
+        fd.append('file_hash', fileHash);
+        const res  = await fetch(ML_AJAX, { method:'POST', body:fd });
+        const data = await res.json();
+        return data.ok ? data : { uploaded_chunks:[] };
+    } catch(e) { return { uploaded_chunks:[] }; }
+}
 
+/** 上传单个分片，失败自动重试 */
+async function mlUploadChunk(file, fileHash, chunkBlob, ci, total, attempt = 0) {
     const fd = new FormData();
-    fd.append('act', 'upload');
-    Array.from(fileList).forEach(f => fd.append('files[]', f));
-
-    // 模拟进度动画
-    let progress = 0;
-    const iv = setInterval(() => {
-        progress = Math.min(progress + Math.random() * 12, 88);
-        bar.style.transition = 'width .3s';
-        bar.style.width = progress + '%';
-    }, 200);
-
+    fd.append('act',         'chunk_upload');
+    fd.append('file_hash',   fileHash);
+    fd.append('file_name',   file.name);
+    fd.append('file_size',   file.size);
+    fd.append('chunk_index', ci);
+    fd.append('chunk_total', total);
+    fd.append('chunk',       chunkBlob, file.name);
     try {
         const res  = await fetch(ML_AJAX, { method:'POST', body:fd });
-        clearInterval(iv);
-        bar.style.width = '100%';
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-
-        if (data.uploaded?.length) {
-            mlToast(`✅ 成功上传 ${data.uploaded.length} 个文件`);
-            await mlLoadFiles();
-        }
-        if (data.errors?.length) {
-            mlToast('⚠️ ' + data.errors.join(' · '), true);
-        }
-        if (!data.uploaded?.length && !data.errors?.length) {
-            mlToast('没有文件被处理', true);
-        }
+        if (!data.ok) throw new Error(data.msg || '服务器错误');
+        return data;
     } catch(e) {
-        clearInterval(iv);
-        mlToast('上传失败：' + e.message, true);
+        if (attempt < ML_MAX_RETRY) {
+            await new Promise(r => setTimeout(r, ML_RETRY_DELAY * (attempt + 1)));
+            return mlUploadChunk(file, fileHash, chunkBlob, ci, total, attempt + 1);
+        }
+        throw e;
     }
+}
+
+/** 主上传函数：分片 + 断点续传 + 真实进度 */
+async function mlUploadFiles(fileList) {
+    const files  = Array.from(fileList);
+    const wrap   = document.getElementById('mlProgressWrap');
+    const bar    = document.getElementById('mlProgressBar');
+    const fileLbl= document.getElementById('mlProgressFile');
+    const pctLbl = document.getElementById('mlProgressPct');
+    const txt    = document.getElementById('mlProgressTxt');
+    const speed  = document.getElementById('mlProgressSpeed');
+
+    // 初始化进度 UI
+    wrap.style.display  = 'flex';
+    bar.style.transition= 'none';
+    bar.style.width     = '0%';
+    if (pctLbl) pctLbl.textContent = '0%';
+    if (speed)  speed.textContent  = '';
+
+    const totalBytes    = files.reduce((s, f) => s + f.size, 0);
+    let   doneBytes     = 0;
+    let   speedWindow   = 0;      // bytes since last speed sample
+    let   speedStamp    = Date.now();
+    const uploaded      = [];
+    const errors        = [];
+
+    /** 更新进度条（每个分片上传完毕后调用）*/
+    function tick(chunkBytes, fileIdx, fileName, ci, total) {
+        doneBytes   += chunkBytes;
+        speedWindow += chunkBytes;
+
+        const now  = Date.now();
+        const diff = (now - speedStamp) / 1000;
+        if (diff >= 0.6) {
+            const bps  = speedWindow / diff;
+            speedWindow = 0; speedStamp = now;
+            if (speed) speed.textContent =
+                bps >= 1048576 ? `${(bps/1048576).toFixed(1)} MB/s`
+              : bps >= 1024    ? `${(bps/1024).toFixed(0)} KB/s`
+              :                  `${bps.toFixed(0)} B/s`;
+        }
+
+        const pct = totalBytes > 0 ? Math.round(doneBytes / totalBytes * 100) : 0;
+        bar.style.transition = 'width .15s ease';
+        bar.style.width      = pct + '%';
+        if (pctLbl) pctLbl.textContent = pct + '%';
+
+        const chunkInfo = total > 1 ? ` · 分片 ${ci+1}/${total}` : '';
+        if (fileLbl) fileLbl.textContent = `${fileIdx+1}/${files.length}：${fileName}`;
+        if (txt)     txt.textContent     = `正在上传${chunkInfo}`;
+    }
+
+    for (let i = 0; i < files.length; i++) {
+        const file       = files[i];
+        const fileHash   = mlFileHash(file);
+        const totalChunk = Math.ceil(file.size / ML_CHUNK_SIZE) || 1;
+
+        if (fileLbl) fileLbl.textContent = `${i+1}/${files.length}：${file.name}`;
+        if (txt)     txt.textContent     = '检查断点续传...';
+
+        try {
+            // 获取已上传分片（断点续传）
+            const resumeInfo = await mlCheckResume(fileHash);
+            const doneSet    = new Set(resumeInfo.uploaded_chunks || []);
+
+            // 将已上传分片计入总进度
+            let preBytes = 0;
+            for (const ci of doneSet) {
+                const s = ci * ML_CHUNK_SIZE;
+                preBytes += Math.min(ML_CHUNK_SIZE, file.size - s);
+            }
+            doneBytes += preBytes;
+
+            let finalResult = null;
+
+            for (let ci = 0; ci < totalChunk; ci++) {
+                // 跳过已完成分片（但最后一片始终上传，确保服务器触发合并）
+                if (doneSet.has(ci) && ci < totalChunk - 1) {
+                    continue;
+                }
+
+                const start = ci * ML_CHUNK_SIZE;
+                const end   = Math.min(start + ML_CHUNK_SIZE, file.size);
+                const blob  = file.slice(start, end);
+
+                const result = await mlUploadChunk(file, fileHash, blob, ci, totalChunk);
+                tick(end - start, i, file.name, ci, totalChunk);
+
+                if (result.done) finalResult = result;
+            }
+
+            if (finalResult) {
+                uploaded.push(finalResult);
+            }
+
+        } catch(e) {
+            errors.push(`${file.name}：${e.message}`);
+        }
+    }
+
+    // 完成
+    bar.style.width = '100%';
+    if (pctLbl) pctLbl.textContent = '100%';
+    if (txt)    txt.textContent    = '上传完成';
+    if (speed)  speed.textContent  = '';
+
+    if (uploaded.length) {
+        mlToast(`✅ 成功上传 ${uploaded.length} 个文件`);
+        await mlLoadFiles();
+    }
+    if (errors.length) mlToast('⚠️ ' + errors.join('\n'), true);
+    if (!uploaded.length && !errors.length) mlToast('没有文件被处理', true);
 
     setTimeout(() => {
         wrap.style.display = 'none';
-        bar.style.width = '0%';
-    }, 900);
+        bar.style.width    = '0%';
+        if (pctLbl) pctLbl.textContent = '0%';
+    }, 1200);
 }
 
-// ─── Global drag & drop (全窗口拖曳) ─────────────────────────────────────
+// ─── Global drag & drop（全窗口拖曳，屏蔽页内元素拖动触发）─────────────
+// 通过监听 dragstart/dragend 区分「页内元素」和「外部文件」拖入
+let mlInternalDrag = false;
+
 function mlInitGlobalDrop() {
     const zone = document.getElementById('mlDropZone');
 
+    // 页内拖动开始 → 标记，防止触发上传覆层
+    document.addEventListener('dragstart', () => { mlInternalDrag = true;  });
+    document.addEventListener('dragend',   () => { mlInternalDrag = false; });
+
     document.addEventListener('dragenter', e => {
-        if (!e.dataTransfer?.types?.includes('Files')) return;
+        if (mlInternalDrag) return;                              // 页内拖动：忽略
+        if (!e.dataTransfer?.types?.includes('Files')) return;  // 非文件：忽略
         mlDragCount++;
         zone.classList.add('drag-over');
         e.preventDefault();
     });
     document.addEventListener('dragleave', () => {
+        if (mlInternalDrag) return;
         mlDragCount = Math.max(0, mlDragCount - 1);
         if (mlDragCount === 0) zone.classList.remove('drag-over');
     });
     document.addEventListener('dragover', e => {
-        if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+        if (!mlInternalDrag && e.dataTransfer?.types?.includes('Files')) e.preventDefault();
     });
     document.addEventListener('drop', e => {
         e.preventDefault();
         mlDragCount = 0;
         zone.classList.remove('drag-over');
+        mlInternalDrag = false;
         if (e.dataTransfer?.files?.length) mlUploadFiles(e.dataTransfer.files);
     });
 }
@@ -792,12 +927,24 @@ function mlToast(msg, isErr = false) {
 
 /* ── Progress ──────────────────────────────────────────────────────────── */
 .ml-progress-wrap {
-    display: flex; align-items: center; gap: .75rem;
-    margin-bottom: 1rem; padding: .52rem .9rem;
+    display: flex; flex-direction: column; gap: .32rem;
+    margin-bottom: 1rem; padding: .6rem .9rem;
     background: rgba(108,93,251,.05); border-radius: 8px;
 }
+.ml-progress-header {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .5rem;
+}
+.ml-progress-file {
+    font-size: .82rem; font-weight: 600; color: var(--text,#333);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+}
+.ml-progress-pct { font-size: .82rem; font-weight: 700; color: #6c5dfb; flex-shrink: 0; }
+.ml-progress-footer {
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+}
+.ml-progress-speed { font-size: .74rem; color: #6c5dfb; font-weight: 600; flex-shrink: 0; }
 .ml-progress-bar {
-    flex: 1; height: 7px;
+    width: 100%; height: 7px;
     background: rgba(155,140,255,.18); border-radius: 99px; overflow: hidden;
 }
 .ml-progress-bar > div {
@@ -1087,6 +1234,9 @@ body.dark-mode .ml-thumb { background: rgba(176,160,255,.04); }
 body.dark-mode .ml-info  { border-top-color: var(--dark-admin-border); }
 body.dark-mode .ml-progress-wrap { background: rgba(176,160,255,.05); }
 body.dark-mode .ml-progress-bar  { background: rgba(176,160,255,.12); }
+body.dark-mode .ml-progress-file { color: var(--dark-text,#eaeaea); }
+body.dark-mode .ml-progress-pct  { color: var(--dark-vio,#b096ff); }
+body.dark-mode .ml-progress-speed{ color: var(--dark-vio,#b096ff); }
 body.dark-mode .ml-paste-list    { background: rgba(176,160,255,.06); color: var(--dark-sub,#b0b0c5); }
 body.dark-mode .ml-view-toggle   { border-color: var(--dark-admin-border); }
 body.dark-mode .ml-vtbtn + .ml-vtbtn { border-left-color: var(--dark-admin-border); }

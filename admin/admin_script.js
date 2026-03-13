@@ -73,37 +73,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化编辑器等其他功能
     initCodeEditors();
-    initSparkles();
     initShortcodes();
     initWordCount();
 });
-// 初始化Sparkles特效
-function initSparkles() {
-    const box = document.createElement('div');
-    box.className = 'sparkles';
-    box.id = 'sparkles';
-    box.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(box);
-    const count = 40;
-    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-    for (let i = 0; i < count; i++) {
-        const s = document.createElement('i');
-        const size = 6 + Math.random() * 10;
-        s.style.width = s.style.height = size + 'px';
-        s.style.left = (Math.random() * 100) + 'vw';
-        s.style.top = (Math.random() * 100) + 'vh';
-        s.style.animationDuration = (10 + Math.random() * 12) + 's';
-        s.style.animationDelay = (Math.random() * -20) + 's';
-        s.style.opacity = 0.4 + Math.random() * 0.6;
-        box.appendChild(s);
-    }
-    if (vw < 480) {
-        const kids = box.querySelectorAll('i');
-        for (let j = 0; j < kids.length; j += 2) {
-            kids[j].remove();
-        }
-    }
-}
 // 初始化编辑器
 function initCodeEditors() {
     // 配置所有编辑器

@@ -378,18 +378,18 @@ function saveRegistrationEmailSettings($settings) {
     $db = Db::getInstance();
     $allowedDomains = implode("\n", $settings['allowed_domains'] ?? []);
     $blockedDomains = implode("\n", $settings['blocked_domains'] ?? []);
+    $mode           = $settings['email_mode'] ?? 'all';
     try {
-        $sql = "
-            UPDATE registration_email_settings
-            SET email_mode = ?, allowed_domains = ?, blocked_domains = ?
-            WHERE id = 1
-        ";
+        // 用 INSERT...ON DUPLICATE KEY UPDATE 保证表为空时（首次保存）也能写入行，
+        // 避免纯 UPDATE WHERE id=1 在行不存在时影响 0 行、静默返回 true 的 bug。
+        $sql = "INSERT INTO registration_email_settings (id, email_mode, allowed_domains, blocked_domains)
+                VALUES (1, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    email_mode      = VALUES(email_mode),
+                    allowed_domains = VALUES(allowed_domains),
+                    blocked_domains = VALUES(blocked_domains)";
         $stmt = $db->prepare($sql);
-        $stmt->execute([
-            $settings['email_mode'] ?? 'all',
-            $allowedDomains,
-            $blockedDomains
-        ]);
+        $stmt->execute([$mode, $allowedDomains, $blockedDomains]);
         return true;
     } catch (PDOException $e) {
         error_log("保存注册邮箱设置失败: " . $e->getMessage());

@@ -342,6 +342,9 @@ if ($isLoggedIn && $isInitialized) {
                         <div id="comments-content" class="tab-pane <?php echo $currentPage === 'comments' ? 'active' : ''; ?>">
                             <?php include 'admin_comments.php'; ?>
                         </div>
+                        <div id="profile_review-content" class="tab-pane <?php echo $currentPage === 'profile_review' ? 'active' : ''; ?>">
+                            <?php include 'admin_profile_review.php'; ?>
+                        </div>
                         <div id="smtp-content" class="tab-pane <?php echo $currentPage === 'smtp' ? 'active' : ''; ?>">
                             <?php include 'admin_smtp.php'; ?>
                         </div>
@@ -353,6 +356,9 @@ if ($isLoggedIn && $isInitialized) {
                         </div>
                         <div id="landing-content" class="tab-pane <?php echo $currentPage === 'landing' ? 'active' : ''; ?>">
                             <?php include 'admin_landing.php'; ?>
+                        </div>
+                        <div id="social-content" class="tab-pane <?php echo $currentPage === 'social' ? 'active' : ''; ?>">
+                            <?php include 'admin_social.php'; ?>
                         </div>
                         <div id="update-content" class="tab-pane <?php echo $currentPage === 'update' ? 'active' : ''; ?>">
                             <?php include 'admin_update.php'; ?>

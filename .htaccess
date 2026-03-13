@@ -1,9 +1,11 @@
 RewriteEngine On
 RewriteBase /
-# 无论浏览器请求哪个目录下的 favicon.ico，都指向根目录的 img/logo.ico
-RewriteRule ^favicon\.ico$ /img/logo.ico [L]
-# 如果子目录请求也想拦截
-RewriteRule ^.*/favicon\.ico$ /img/logo.ico [L]
+
+# favicon.ico / favicon.png → /img/ 目录
+# 新增 !-f 条件：若文件已存在（如 /img/favicon.ico 本身）则不重写，避免 404
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !^/img/
+RewriteRule (^|^.+/)favicon\.(ico|png|svg)$ /img/favicon.$2 [L,END]
 # 处理index.php重定向（仅GET请求）
 RewriteCond %{REQUEST_METHOD} GET
 RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /index\.php(\?[^\s]*)?\s

@@ -1,49 +1,70 @@
-<div class="comment-item <?php echo isset($depth) && $depth > 0 ? 'reply-comment' : ''; ?>" id="comment_<?php echo $comment['id']; ?>">
-    <div class="comment-header">
-        <img src="<?php echo getCommentAvatar($comment['email']); ?>" 
-             alt="<?php echo $comment['name']; ?>" class="comment-avatar">
-        <div>
-            <div class="comment-name"><?php echo $comment['name']; ?></div>
-            <div class="comment-date"><?php echo $comment['created_at']; ?></div>
+<?php
+// Resolve depth for nested rendering
+if (!isset($depth)) $depth = 0;
+
+// Parse reply-to info and strip @mention prefix from content
+$isReply = !empty($comment['parent_id']);
+$displayContent = trim($comment['content']);
+$replyToName = null;
+
+if ($isReply) {
+    if (strpos($displayContent, '@') === 0) {
+        preg_match('/^@([^\s]+)\s*/', $displayContent, $m);
+        if (!empty($m[0])) {
+            $replyToName    = $m[1];
+            $displayContent = ltrim(substr($displayContent, strlen($m[0])));
+        }
+    }
+    if ($replyToName === null) {
+        $parentComment = getParentComment($comment['parent_id']);
+        $replyToName   = $parentComment ? $parentComment['name'] : '未知用户';
+    }
+}
+?>
+<div class="fb-comment <?php echo $isReply ? 'fb-reply' : 'fb-top-comment'; ?>"
+     id="comment_<?php echo $comment['id']; ?>">
+
+    <div class="fb-comment-head">
+        <img src="<?php echo getCommentAvatar($comment['email']); ?>"
+             alt="<?php echo htmlspecialchars($comment['name']); ?>"
+             class="fb-avatar">
+        <div class="fb-meta">
+            <span class="fb-name"><?php echo htmlspecialchars($comment['name']); ?></span>
+            <span class="fb-date"><?php echo $comment['created_at']; ?></span>
         </div>
     </div>
-    <div class="comment-content" style="white-space: pre-wrap; word-wrap: break-word;"><?php 
-        $isReply = !empty($comment['parent_id']);
-        $content = trim($comment['content']);
-        if ($isReply) {
-            if (strpos($comment['content'], '@') === 0) {
-                preg_match('/^@([^\s]+)/', $comment['content'], $matches);
-                if (!empty($matches[1])) {
-                    echo '<span class="comment-reply-to">@' . $matches[1] . '</span> ';
-                    echo substr($comment['content'], strlen($matches[0]) + 1);
-                } else {
-                    $parentComment = getParentComment($comment['parent_id']);
-                    $parentName = $parentComment ? $parentComment['name'] : '未知用户';
-                    echo '<span class="comment-reply-to">@' . $parentName . '</span> ';
-                    echo $comment['content'];
-                }
-            }
-        else {
-                $parentComment = getParentComment($comment['parent_id']);
-                $parentName = $parentComment ? $parentComment['name'] : '未知用户';
-                echo '<span class="comment-reply-to">@' . $parentName . '</span> ';
-                echo $comment['content'];
-            }
-        } else {
-            echo $comment['content'];
-        }
-        ?>
+
+    <div class="fb-comment-body">
+        <?php if ($isReply && $replyToName): ?>
+        <div class="fb-reply-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:3px;"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+            回复 <span class="fb-reply-to-name">@<?php echo htmlspecialchars($replyToName); ?></span>
+        </div>
+        <?php endif; ?>
+        <div class="fb-content"><?php echo nl2br(htmlspecialchars($displayContent)); ?></div>
+        <div class="fb-actions">
+            <a href="#" class="reply-link"
+               data-comment-id="<?php echo $comment['id']; ?>"
+               data-comment-name="<?php echo htmlspecialchars($comment['name']); ?>">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>回复
+            </a>
+        </div>
     </div>
-    <div class="comment-actions">
-        <a href="#" class="reply-link" 
-           data-comment-id="<?php echo $comment['id']; ?>"
-           data-comment-name="<?php echo $comment['name']; ?>">回复</a>
-    </div>
+
     <?php if (!empty($comment['replies'])): ?>
-    <div class="replies">
-        <?php foreach ($comment['replies'] as $reply): ?>
+    <div class="fb-replies">
+        <?php
+        $depth++;
+        foreach ($comment['replies'] as $reply):
+            $comment_bak = $comment;
+            $comment = $reply;
+        ?>
             <?php include 'comment_template.php'; ?>
-        <?php endforeach; ?>
+        <?php
+            $comment = $comment_bak;
+        endforeach;
+        $depth--;
+        ?>
     </div>
     <?php endif; ?>
 </div>

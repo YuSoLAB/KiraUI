@@ -55,7 +55,7 @@ $pages  = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <!-- 页面编辑器 Modal（大尺寸）-->
-<div id="pageModal" class="pmodal" style="display:none;" onclick="if(event.target===this)closePageModal()">
+<div id="pageModal" class="pmodal" style="display:none;">
     <div class="pmodal-box">
         <div class="pmodal-hd">
             <h3 id="pmTitle">新建页面</h3>
@@ -209,6 +209,25 @@ function peInsert(tag) {
 }
 
 document.addEventListener('keydown', e => { if(e.key==='Escape') closePageModal(); });
+
+/* ── 背景遮罩安全关闭：只有 mousedown + mouseup 都落在遮罩上才关闭 ── */
+(function () {
+    let _downOnBackdrop = false;
+    const modal = document.getElementById('pageModal');
+
+    modal.addEventListener('mousedown', function (e) {
+        // 记录按下时是否在遮罩本身（而非 pmodal-box 内部）
+        _downOnBackdrop = (e.target === modal);
+    });
+
+    modal.addEventListener('mouseup', function (e) {
+        // 只有按下和松开都在遮罩上，才视为「点击背景关闭」
+        if (_downOnBackdrop && e.target === modal) {
+            closePageModal();
+        }
+        _downOnBackdrop = false;
+    });
+})();
 </script>
 
 <style>

@@ -156,6 +156,82 @@ $imgDir = __DIR__ . '/img/';
             font-size: .9rem;
         }
         .back-nav a:hover { color: var(--accent, #6c63ff); }
+
+        /* ── 夜间模式适配 ── */
+        body.dark-mode .page-body {
+            background: rgba(42, 42, 66, .92);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, .35);
+            color: #eaeaf8;
+        }
+        body.dark-mode .page-body h1,
+        body.dark-mode .page-body h2,
+        body.dark-mode .page-body h3,
+        body.dark-mode .page-body h4,
+        body.dark-mode .page-body h5,
+        body.dark-mode .page-body h6 {
+            color: #eaeaf8;
+        }
+        body.dark-mode .page-body p,
+        body.dark-mode .page-body li {
+            color: #c8c8e0;
+        }
+        body.dark-mode .page-body a {
+            color: #b096ff;
+        }
+        body.dark-mode .page-body a:hover {
+            color: #d0bcff;
+        }
+        body.dark-mode .page-body hr {
+            border-top-color: rgba(176, 160, 255, .18);
+        }
+        body.dark-mode .page-body blockquote {
+            border-left-color: #b096ff;
+            background: rgba(108, 93, 251, .12);
+            color: #b0b0c8;
+        }
+        body.dark-mode .page-body img {
+            opacity: .9;
+        }
+        body.dark-mode .page-body code {
+            background: rgba(176, 160, 255, .12);
+            color: #d0bcff;
+        }
+        body.dark-mode .page-body pre {
+            background: rgba(15, 15, 30, .6);
+            border: 1px solid rgba(176, 160, 255, .15);
+        }
+        body.dark-mode .page-body table th {
+            background: rgba(108, 93, 251, .18);
+            color: #eaeaf8;
+        }
+        body.dark-mode .page-body table td {
+            border-color: rgba(176, 160, 255, .12);
+            color: #c8c8e0;
+        }
+        body.dark-mode .page-body table tr:nth-child(even) {
+            background: rgba(42, 42, 66, .5);
+        }
+        body.dark-mode .page-hero h1 {
+            color: #eaeaf8;
+        }
+        body.dark-mode .page-hero .page-meta {
+            color: #b0b0c8;
+        }
+        body.dark-mode .back-nav a {
+            color: #b0b0c8;
+        }
+        body.dark-mode .back-nav a:hover {
+            color: #b096ff;
+        }
+        body.dark-mode .page-404 .err-code {
+            color: #b096ff;
+        }
+        body.dark-mode .page-404 h2 {
+            color: #eaeaf8;
+        }
+        body.dark-mode .page-404 p {
+            color: #b0b0c8;
+        }
     </style>
 </head>
 <body>
@@ -163,7 +239,10 @@ $imgDir = __DIR__ . '/img/';
     <nav class="navbar">
         <div class="nav-container">
             <a href="index.php" class="nav-logo">
-                <?php if (file_exists($imgDir . 'logo.ico')): ?>
+                <?php
+                if (file_exists($imgDir . 'logo.png')): ?>
+                    <img src="img/logo.png" alt="Logo" class="logo-img">
+                <?php elseif (file_exists($imgDir . 'logo.ico')): ?>
                     <img src="img/logo.ico" alt="Logo" class="logo-img">
                 <?php else: ?>
                     <span class="logo-text"><?php echo htmlspecialchars($htmlTitle); ?></span>
