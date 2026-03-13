@@ -107,8 +107,8 @@ try {
     $db->prepare(
         "INSERT INTO users
              (username, nickname, email, password_hash, role, created_at, updated_at)
-         VALUES (?, NULL, ?, ?, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-    )->execute([$username, $email, $passwordHash]);
+         VALUES (?, ?, ?, ?, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    )->execute([$username, $username, $email, $passwordHash]);
 
     // 清理已使用的邮箱验证码
     $db->prepare("DELETE FROM email_verification WHERE email = ?")->execute([$email]);

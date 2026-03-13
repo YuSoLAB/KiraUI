@@ -109,6 +109,7 @@
                     🕐 头像变更审核中，通过后将自动生效
                 </div>
                 <?php endif; ?>
+                <form id="avatarForm" method="post" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="upload_avatar">
                     <input type="hidden" name="active_tab"
                            value="<?php echo htmlspecialchars($activeTab); ?>">
@@ -407,6 +408,7 @@
 </style>
 
 <script>
+document.addEventListener('DOMContentLoaded', function () {
 (function () {
     const fileInput     = document.getElementById('avatar-upload');
     const uploadButton  = document.getElementById('uploadButton');
@@ -420,6 +422,14 @@
     const cropConfirm   = document.getElementById('cropConfirm');
     const cropCancel    = document.getElementById('cropCancel');
     const cropModalClose= document.getElementById('cropModalClose');
+
+    // 安全检查：若关键元素不存在则直接退出，避免整个脚本崩溃
+    if (!fileInput || !uploadButton || !currentAvatar || !cropModal || !cropImage) {
+        console.error('[Avatar] 初始化失败：找不到必要的 DOM 元素，请检查 HTML 结构。', {
+            fileInput, uploadButton, currentAvatar, cropModal, cropImage
+        });
+        return;
+    }
 
     let cropper = null;
     let croppedBlob = null;   // 裁剪后的 Blob
@@ -626,4 +636,5 @@
         }
     });
 })();
+}); // DOMContentLoaded
 </script>

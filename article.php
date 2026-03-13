@@ -294,7 +294,7 @@ $navMenus = getNavMenuTree();
                 <div class="user-auth">
                     <?php
                     if (isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true) {
-                        echo '<span class="user-welcome">欢迎，' . htmlspecialchars($_SESSION['user']['nickname']) . '</span>';
+                        echo '<span class="user-welcome">欢迎，' . htmlspecialchars($_SESSION['user']['nickname'] ?? '') . '</span>';
                         echo '<a href="user_center" class="btn btn-small btn-login">用户中心</a>';
                     } else {
                         echo '<a href="login" class="btn btn-small btn-login">登录</a>';
@@ -435,7 +435,7 @@ $navMenus = getNavMenuTree();
                         }
                         $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
                         if ($isLoggedIn) {
-                            $userNickname = htmlspecialchars($_SESSION['user']['nickname']);
+                            $userNickname = htmlspecialchars($_SESSION['user']['nickname'] ?? '');
                             $userEmail = htmlspecialchars($_SESSION['user']['email']);
                             echo '<input type="hidden" name="name" value="' . $userNickname . '">';
                             echo '<input type="hidden" name="email" value="' . $userEmail . '">';
@@ -859,7 +859,7 @@ $navMenus = getNavMenuTree();
                         /* 服务端未返回 comment 对象（极端情况）— 乐观渲染 */
                         var optimistic = {
                             id: 'tmp_' + Date.now(),
-                            name: (document.getElementById('name') ? document.getElementById('name').value : '<?php echo addslashes($isLoggedIn ? $_SESSION['user']['nickname'] : ''); ?>') || '我',
+                            name: (document.getElementById('name') ? document.getElementById('name').value : '<?php echo addslashes($isLoggedIn ? ($_SESSION['user']['nickname'] ?? '') : ''); ?>') || '我',
                             content: submitContent,
                             parent_id: parentId,
                             created_at: new Date().toLocaleString('zh-CN', {hour12:false}).replace(/\//g,'-'),

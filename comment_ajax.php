@@ -33,8 +33,10 @@ if ($articleId <= 0) {
 // 登录用户自动填充姓名 / 邮箱
 $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
 if ($isLoggedIn) {
-    $name  = $_SESSION['user']['nickname'] ?? '';
-    $email = $_SESSION['user']['email']    ?? '';
+    $name  = (isset($_SESSION['user']['nickname']) && $_SESSION['user']['nickname'] !== '')
+             ? $_SESSION['user']['nickname']
+             : ($_SESSION['user']['username'] ?? '');
+    $email = $_SESSION['user']['email'] ?? '';
 } else {
     $name  = trim($_POST['name']  ?? '');
     $email = trim($_POST['email'] ?? '');

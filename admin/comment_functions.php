@@ -152,6 +152,37 @@ function isEmailAllowed($email, $settings) {
     }   
     return true;
 }
+/**
+ * 生成纯 SVG Data URI 头像，无需任何外部请求。
+ *
+ * @param  string $text  显示的文字（取首字）
+ * @param  int    $size  尺寸（px）
+ * @return string        data:image/svg+xml;base64,… 格式的 URI
+ */
+function generateSvgAvatar(string $text, int $size = 64): string {
+    // 根据文字哈希选色，让不同用户有不同背景色
+    $colors = ['#5C6BC0','#26A69A','#EF5350','#AB47BC','#42A5F5','#FF7043','#66BB6A','#FFA726'];
+    $bg     = $colors[abs(crc32($text)) % count($colors)];
+
+    $letter   = mb_strtoupper(mb_substr($text, 0, 1, 'UTF-8'), 'UTF-8');
+    $fontSize = (int)($size * 0.45);
+
+    $svg = sprintf(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%1$d" viewBox="0 0 %1$d %1$d">'
+        . '<rect width="%1$d" height="%1$d" rx="%2$d" fill="%3$s"/>'
+        . '<text x="50%%" y="50%%" dominant-baseline="central" text-anchor="middle" '
+        . 'font-family="sans-serif" font-size="%4$d" fill="#fff">%5$s</text>'
+        . '</svg>',
+        $size,
+        (int)($size / 2),
+        $bg,
+        $fontSize,
+        htmlspecialchars($letter, ENT_XML1, 'UTF-8')
+    );
+
+    return 'data:image/svg+xml;base64,' . base64_encode($svg);
+}
+
 function getCommentAvatar($email, $userId = null) {
     if ($userId) {
         try {
@@ -168,7 +199,9 @@ function getCommentAvatar($email, $userId = null) {
     if (preg_match('/^(\d+)@(qq\.com|vip\.qq\.com)$/', $email, $matches)) {
         return 'https://q1.qlogo.cn/g?b=qq&nk=' . $matches[1] . '&s=640';
     }
-    return 'https://via.placeholder.com/64?text=Guest';
+    // 取邮箱 @ 前的部分作为显示文字，生成本地 SVG 头像
+    $label = strstr($email, '@', true) ?: 'G';
+    return generateSvgAvatar($label, 64);
 }
 function addNewComment($articleId, $data) {
     $settings = initCommentSettings();
@@ -281,8 +314,10 @@ function addReplyToComment(&$comments, $reply) {
 function moderateComment($articleId, $commentId, $approved) {
     $db = Db::getInstance();
     try {
+        // approved: 1 = 已通过, 0 = 待审, -1 = 已拒绝
+        $approvedValue = $approved ? 1 : -1;
         $stmt = $db->prepare("UPDATE comments SET approved = ? WHERE id = ? AND article_id = ?");
-        $result = $stmt->execute([$approved ? 1 : 0, $commentId, $articleId]);
+        $result = $stmt->execute([$approvedValue, $commentId, $articleId]);
 
         // 审核通过时，若是回复评论则补发通知
         if ($result && $approved) {

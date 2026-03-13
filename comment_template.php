@@ -26,10 +26,10 @@ if ($isReply) {
 
     <div class="fb-comment-head">
         <img src="<?php echo getCommentAvatar($comment['email']); ?>"
-             alt="<?php echo htmlspecialchars($comment['name']); ?>"
+             alt="<?php echo htmlspecialchars($comment['name'] ?? ''); ?>"
              class="fb-avatar">
         <div class="fb-meta">
-            <span class="fb-name"><?php echo htmlspecialchars($comment['name']); ?></span>
+            <span class="fb-name"><?php echo htmlspecialchars($comment['name'] ?? ''); ?></span>
             <span class="fb-date"><?php echo $comment['created_at']; ?></span>
         </div>
     </div>
@@ -45,7 +45,7 @@ if ($isReply) {
         <div class="fb-actions">
             <a href="#" class="reply-link"
                data-comment-id="<?php echo $comment['id']; ?>"
-               data-comment-name="<?php echo htmlspecialchars($comment['name']); ?>">
+               data-comment-name="<?php echo htmlspecialchars($comment['name'] ?? ''); ?>">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>回复
             </a>
         </div>

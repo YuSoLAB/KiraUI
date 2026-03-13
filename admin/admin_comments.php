@@ -100,6 +100,12 @@ $approvedComments = $stmtApproved->fetchAll();
 $emailModes = [];
 $emailHashes = array_unique(array_filter(array_column($approvedComments, 'email_hash')));
 if (!empty($emailHashes)) {
+    // 确保表存在（首次使用前可能尚未由 updateEmailModeration 创建）
+    $db->exec("CREATE TABLE IF NOT EXISTS email_moderation (
+        email_hash VARCHAR(32) PRIMARY KEY,
+        moderation VARCHAR(20) NOT NULL DEFAULT 'strict',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )");
     $placeholders = implode(',', array_fill(0, count($emailHashes), '?'));
     $stmtModes = $db->prepare(
         "SELECT email_hash, moderation FROM email_moderation WHERE email_hash IN ($placeholders)"

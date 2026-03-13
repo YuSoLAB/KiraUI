@@ -19,8 +19,8 @@ class ArticleIndex {
                 $tags = array_map('trim', $tags);
                 $tagsStr = implode(',', $tags);
                 $stmt = $this->db->prepare("INSERT INTO article_index 
-                    (id, title, date, excerpt, tags, word_count, read_time, cover_image)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    (id, title, date, excerpt, tags, word_count, read_time, cover_image, pinned_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $article['id'],
                     $article['title'] ?? '无标题',
@@ -29,7 +29,8 @@ class ArticleIndex {
                     $tagsStr,
                     $article['word_count'] ?? 0,
                     $article['read_time'] ?? 0,
-                    $article['cover_image'] ?? ''
+                    $article['cover_image'] ?? '',
+                    $article['pinned_at'] ?? null   // ← 从 articles 表直接读取，保留置顶状态
                 ]);                
                 $index[$article['id']] = [
                     'id' => $article['id'],

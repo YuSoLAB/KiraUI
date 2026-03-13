@@ -490,9 +490,21 @@ try {
                 );
                 $stmt->execute([$title, $excerpt, $content, $date, $tags, $cover_image]);
                 $newId = (int)$db->lastInsertId();
-                // 同步封面图到 article_index
-                $db->prepare("INSERT INTO article_index (id, title, date, excerpt, tags, cover_image) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),date=VALUES(date),excerpt=VALUES(excerpt),tags=VALUES(tags),cover_image=VALUES(cover_image)")
-                  ->execute([$newId, $title, $date, $excerpt, $tags, $cover_image]);
+                // 同步元数据到 article_index（含 word_count / read_time，保留 pinned_at）
+                $wc = mb_strlen(strip_tags($content));
+                $rt = max(1, (int)round($wc / 400));
+                // 同步更新 articles 表的 word_count / read_time
+                $db->prepare("UPDATE articles SET word_count=?, read_time=? WHERE id=?")
+                   ->execute([$wc, $rt, $newId]);
+                $db->prepare(
+                    "INSERT INTO article_index (id, title, date, excerpt, tags, word_count, read_time, cover_image)
+                     VALUES (?,?,?,?,?,?,?,?)
+                     ON DUPLICATE KEY UPDATE
+                       title=VALUES(title), date=VALUES(date), excerpt=VALUES(excerpt),
+                       tags=VALUES(tags), word_count=VALUES(word_count),
+                       read_time=VALUES(read_time), cover_image=VALUES(cover_image)"
+                )->execute([$newId, $title, $date, $excerpt, $tags, $wc, $rt, $cover_image]);
+                _updateTagStats($db);   // ← 立即刷新标签云
                 _clearArticleCache();
                 echo json_encode(['ok' => true, 'id' => $newId, 'msg' => '文章发布成功！']);
             } else {
@@ -500,9 +512,20 @@ try {
                     "UPDATE articles SET title=?, excerpt=?, content=?, date=?, tags=?, cover_image=?, updated_at=NOW() WHERE id=?"
                 );
                 $stmt->execute([$title, $excerpt, $content, $date, $tags, $cover_image, $id]);
-                // 同步封面图到 article_index
-                $db->prepare("INSERT INTO article_index (id, title, date, excerpt, tags, cover_image) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),date=VALUES(date),excerpt=VALUES(excerpt),tags=VALUES(tags),cover_image=VALUES(cover_image)")
-                  ->execute([$id, $title, $date, $excerpt, $tags, $cover_image]);
+                // 同步元数据到 article_index（含 word_count / read_time，保留 pinned_at）
+                $wc = mb_strlen(strip_tags($content));
+                $rt = max(1, (int)round($wc / 400));
+                $db->prepare("UPDATE articles SET word_count=?, read_time=? WHERE id=?")
+                   ->execute([$wc, $rt, $id]);
+                $db->prepare(
+                    "INSERT INTO article_index (id, title, date, excerpt, tags, word_count, read_time, cover_image)
+                     VALUES (?,?,?,?,?,?,?,?)
+                     ON DUPLICATE KEY UPDATE
+                       title=VALUES(title), date=VALUES(date), excerpt=VALUES(excerpt),
+                       tags=VALUES(tags), word_count=VALUES(word_count),
+                       read_time=VALUES(read_time), cover_image=VALUES(cover_image)"
+                )->execute([$id, $title, $date, $excerpt, $tags, $wc, $rt, $cover_image]);
+                _updateTagStats($db);   // ← 立即刷新标签云
                 _clearArticleCache();
                 echo json_encode(['ok' => true, 'msg' => '文章保存成功！']);
             }
@@ -606,9 +629,23 @@ try {
             ]);
             $newId = (int)$db->lastInsertId();
             $db->prepare("DELETE FROM drafts WHERE id=?")->execute([$id]);
-            // 同步封面图到 article_index
-            $db->prepare("INSERT INTO article_index (id, title, date, excerpt, tags, cover_image) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),date=VALUES(date),excerpt=VALUES(excerpt),tags=VALUES(tags),cover_image=VALUES(cover_image)")
-              ->execute([$newId, $draft['title'], $draft['date'], $draft['excerpt'], $draft['tags'], $draft['cover_image'] ?? '']);
+            // 同步元数据到 article_index（含 word_count / read_time，保留 pinned_at）
+            $wc = mb_strlen(strip_tags($draft['content']));
+            $rt = max(1, (int)round($wc / 400));
+            $db->prepare("UPDATE articles SET word_count=?, read_time=? WHERE id=?")
+               ->execute([$wc, $rt, $newId]);
+            $db->prepare(
+                "INSERT INTO article_index (id, title, date, excerpt, tags, word_count, read_time, cover_image)
+                 VALUES (?,?,?,?,?,?,?,?)
+                 ON DUPLICATE KEY UPDATE
+                   title=VALUES(title), date=VALUES(date), excerpt=VALUES(excerpt),
+                   tags=VALUES(tags), word_count=VALUES(word_count),
+                   read_time=VALUES(read_time), cover_image=VALUES(cover_image)"
+            )->execute([
+                $newId, $draft['title'], $draft['date'], $draft['excerpt'],
+                $draft['tags'], $wc, $rt, $draft['cover_image'] ?? ''
+            ]);
+            _updateTagStats($db);   // ← 立即刷新标签云
             _clearArticleCache();
             echo json_encode(['ok' => true, 'id' => $newId, 'msg' => '草稿已发布为正式文章！']);
         }
@@ -908,6 +945,52 @@ try {
             echo json_encode(['ok' => true, 'msg' => '已拒绝']);
         }
 
+        // ── 获取列表（AJAX 分页，无刷新切换 Tab）──────────────
+        elseif ($act === 'get_list') {
+            $allowedStatuses = ['pending', 'approved', 'rejected', 'all'];
+            $statusFilter = $_POST['status'] ?? 'pending';
+            if (!in_array($statusFilter, $allowedStatuses, true)) { $statusFilter = 'pending'; }
+
+            $perPage = 20;
+            $page    = max(1, intval($_POST['page'] ?? 1));
+
+            $whereStatus = $statusFilter === 'all'
+                ? ''
+                : "WHERE p.status = " . $db->quote($statusFilter);
+
+            $total      = (int)$db->query("SELECT COUNT(*) FROM pending_profile_changes p $whereStatus")->fetchColumn();
+            $totalPages = max(1, (int)ceil($total / $perPage));
+            $page       = min($page, $totalPages);
+            $offset     = ($page - 1) * $perPage;
+
+            $stmt = $db->prepare(
+                "SELECT p.*, u.username, u.nickname AS current_nickname, u.avatar AS current_avatar
+                   FROM pending_profile_changes p
+                   JOIN users u ON u.id = p.user_id
+                 $whereStatus
+                 ORDER BY p.created_at DESC
+                 LIMIT :limit OFFSET :offset"
+            );
+            $stmt->bindValue(':limit',  $perPage, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset,  PDO::PARAM_INT);
+            $stmt->execute();
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $pendingCount = (int)$db->query(
+                "SELECT COUNT(*) FROM pending_profile_changes WHERE status='pending'"
+            )->fetchColumn();
+
+            echo json_encode([
+                'ok'           => true,
+                'items'        => $items,
+                'total'        => $total,
+                'page'         => $page,
+                'totalPages'   => $totalPages,
+                'pendingCount' => $pendingCount,
+                'statusFilter' => $statusFilter,
+            ]);
+        }
+
         else {
             echo json_encode(['ok' => false, 'msg' => '未知审核操作']);
         }
@@ -921,6 +1004,36 @@ try {
     echo json_encode(['ok'=>false,'msg'=>$e->getMessage()]);
 }
 exit;
+
+/**
+ * _updateTagStats — 重新统计所有标签并写入 tag_stats 表。
+ * 在每次文章发布/保存/删除后调用，确保标签云即时更新，无需手动重建索引。
+ */
+function _updateTagStats(PDO $db): void {
+    try {
+        $rows = $db->query(
+            "SELECT tags FROM article_index WHERE tags IS NOT NULL AND tags != ''"
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        $counts = [];
+        foreach ($rows as $tagStr) {
+            foreach (explode(',', $tagStr) as $tag) {
+                $tag = trim($tag);
+                if ($tag !== '') {
+                    $counts[$tag] = ($counts[$tag] ?? 0) + 1;
+                }
+            }
+        }
+
+        $db->exec("TRUNCATE TABLE tag_stats");
+        $ins = $db->prepare("INSERT INTO tag_stats (tag, count) VALUES (?, ?)");
+        foreach ($counts as $tag => $count) {
+            $ins->execute([$tag, $count]);
+        }
+    } catch (Exception $e) {
+        error_log('_updateTagStats error: ' . $e->getMessage());
+    }
+}
 
 /**
  * 清除文章列表缓存，确保封面图等修改立即反映到首页。
