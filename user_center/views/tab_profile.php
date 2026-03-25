@@ -92,13 +92,42 @@
         });
         </script>
 
+        <?php
+        // ── 加载角标函数（如尚未加载） ──────────────────
+        if (!function_exists('getUserBadge')) {
+            require_once ROOT_DIR . '/admin/badge_functions.php';
+        }
+        $_profile_badge = getUserBadge((int)$user['id']);
+        ?>
         <div class="avatar-container">
-            <img src="<?php echo htmlspecialchars($avatarUrl); ?>"
-                 alt="头像" class="avatar-preview" id="currentAvatar">
+            <!-- 头像 + 角标 -->
+            <div style="position:relative;display:inline-block;" class="profile-avatar-wrap">
+                <img src="<?php echo htmlspecialchars($avatarUrl); ?>"
+                     alt="头像" class="avatar-preview" id="currentAvatar">
+                <?php if ($_profile_badge): ?>
+                <div class="profile-badge-dot" style="
+                    position:absolute;bottom:4px;right:4px;
+                    width:22px;height:22px;border-radius:50%;
+                    background:<?php echo htmlspecialchars($_profile_badge['badge_color'] ?? '#1d9bf0'); ?>;
+                    border:2.5px solid var(--profile-bg,#fff);
+                    display:flex;align-items:center;justify-content:center;
+                    box-shadow:0 2px 6px rgba(0,0,0,.25);overflow:hidden;"
+                    title="<?php echo htmlspecialchars(getBadgeLabel($_profile_badge['badge_type'] ?? 'verified')); ?>">
+                    <span style="display:flex;align-items:center;justify-content:center;width:13px;height:13px;">
+                        <?php echo getBadgeIconSvg(
+                            $_profile_badge['badge_type']       ?? 'verified',
+                            $_profile_badge['badge_icon_color'] ?? '#ffffff'
+                        ); ?>
+                    </span>
+                </div>
+                <?php endif; ?>
+            </div>
             <div class="avatar-info">
-                <h3><?php
+                <h3 style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;"><?php
                     // 昵称显示：有昵称用昵称，否则用用户名兜底
                     echo htmlspecialchars($user['nickname'] ?: $user['username']);
+                    // 头衔
+                    echo renderUserTitle($_profile_badge);
                 ?></h3>
                 <p><?php echo htmlspecialchars($user['email']); ?></p>
                 <p>KID: <?php echo htmlspecialchars($user['id']); ?></p>

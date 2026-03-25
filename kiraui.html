@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KiraUI — Lightweight PHP Blog CMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f3ee;
+      --surface: #fffff8;
+      --surface2: #eceae4;
+      --border: rgba(0,0,0,0.08);
+      --border-strong: rgba(0,0,0,0.15);
+      --text: #1a1a1a;
+      --muted: #6e6a62;
+      --subtle: #a09a90;
+      --accent: #2d5a27;
+      --accent-light: rgba(45,90,39,0.08);
+      --accent-mid: rgba(45,90,39,0.15);
+      --warn: #92400e;
+      --warn-bg: #fef3c7;
+      --warn-border: #fde68a;
+      --nav-bg: rgba(245,243,238,0.88);
+    }
+    html.dark {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #16161f;
+      --border: rgba(255,255,255,0.07);
+      --border-strong: rgba(255,255,255,0.13);
+      --text: #e8e8f0;
+      --muted: #7a7a92;
+      --subtle: #4a4a62;
+      --accent: #c8f060;
+      --accent-light: rgba(200,240,96,0.08);
+      --accent-mid: rgba(200,240,96,0.16);
+      --warn: #fbbf24;
+      --warn-bg: rgba(251,191,36,0.07);
+      --warn-border: rgba(251,191,36,0.2);
+      --nav-bg: rgba(10,10,15,0.85);
+    }
+    /* Global theme transition — keep box-sizing intact */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { transition: background-color 0.3s ease; }
+    body, nav, .hero-card, .card-bar, .feat, .stack-item, .tree, .access-box,
+    .warn-banner, .code-inline, .tag, .hero-tag, .step-num, .btn-dark, .btn-outline,
+    .nav-gh, .footer-logo, h1, h2, p, span, a, div { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 clamp(1.5rem, 6vw, 5rem); height: 60px;
+      border-bottom: 1px solid var(--border);
+      background: var(--nav-bg); backdrop-filter: blur(16px);
+    }
+    .nav-logo { font-family: 'Instrument Serif', serif; font-size: 1.3rem; color: var(--text); text-decoration: none; }
+    .nav-logo span { color: var(--accent); font-style: italic; }
+    .nav-right { display: flex; align-items: center; gap: 2rem; }
+    .nav-links { display: flex; gap: 1.8rem; list-style: none; }
+    .nav-links a { font-size: 0.82rem; font-weight: 500; letter-spacing: 0.04em; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-gh {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      font-size: 0.82rem; font-weight: 600;
+      color: var(--surface); background: var(--text);
+      padding: 0.4rem 1rem; border-radius: 5px; text-decoration: none; transition: opacity 0.2s;
+    }
+    .nav-gh:hover { opacity: 0.8; }
+
+    /* HERO */
+    .hero {
+      max-width: 1100px; margin: 0 auto;
+      padding: 10rem clamp(1.5rem, 8vw, 5rem) 6rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+    @media (max-width: 760px) { .hero { grid-template-columns: 1fr; padding-top: 8rem; } }
+    .hero-left { animation: fadeUp 0.6s ease both; }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--accent); background: var(--accent-light);
+      border: 1px solid var(--accent-mid); border-radius: 3px;
+      padding: 0.28rem 0.7rem; margin-bottom: 1.8rem;
+    }
+    h1 { font-family: 'Instrument Serif', serif; font-size: clamp(2.8rem, 5.5vw, 4.2rem); line-height: 1.05; letter-spacing: -0.03em; color: var(--text); margin-bottom: 1.4rem; }
+    h1 em { font-style: italic; color: var(--accent); }
+    .hero-desc { font-size: 1rem; font-weight: 300; color: var(--muted); line-height: 1.75; max-width: 420px; margin-bottom: 2.5rem; }
+    .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn-dark {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      background: var(--text); color: var(--bg);
+      font-size: 0.85rem; font-weight: 600; padding: 0.65rem 1.5rem;
+      border-radius: 5px; text-decoration: none; transition: opacity 0.2s, transform 0.2s;
+    }
+    .btn-dark:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      background: transparent; color: var(--muted);
+      font-size: 0.85rem; font-weight: 500; padding: 0.65rem 1.5rem;
+      border-radius: 5px; border: 1px solid var(--border-strong);
+      text-decoration: none; transition: background 0.2s, color 0.2s;
+    }
+    .btn-outline:hover { background: var(--surface2); color: var(--text); }
+
+    /* HERO CARD */
+    .hero-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.06);
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+    .card-bar {
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      padding: 0.65rem 1rem; display: flex; align-items: center; gap: 0.45rem;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; } .dot-y { background: #ffbd2e; } .dot-g { background: #28c940; }
+    .card-url {
+      margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+      color: var(--subtle); background: var(--bg); border: 1px solid var(--border);
+      border-radius: 3px; padding: 0.18rem 0.6rem;
+    }
+    .card-body { padding: 1.5rem; }
+    .post-item { display: flex; align-items: flex-start; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid var(--border); }
+    .post-item:last-child { border-bottom: none; }
+    .post-date { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--subtle); white-space: nowrap; padding-top: 2px; min-width: 52px; }
+    .post-title { font-size: 0.85rem; font-weight: 500; color: var(--text); line-height: 1.4; }
+    .post-tags { margin-top: 0.3rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .tag { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 3px; background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-mid); }
+
+    /* WARNING */
+    .warn-banner {
+      background: var(--warn-bg); border-top: 1px solid var(--warn-border); border-bottom: 1px solid var(--warn-border);
+      padding: 0.9rem clamp(1.5rem, 8vw, 5rem); display: flex; align-items: flex-start; gap: 0.75rem;
+    }
+    .warn-text { font-size: 0.82rem; font-weight: 500; color: var(--warn); line-height: 1.5; }
+
+    /* SECTIONS */
+    .container { max-width: 1100px; margin: 0 auto; padding: clamp(4rem, 7vw, 6rem) clamp(1.5rem, 6vw, 5rem); }
+    .section-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; display: block; }
+    h2 { font-family: 'Instrument Serif', serif; font-size: clamp(1.8rem, 3.5vw, 2.6rem); line-height: 1.1; letter-spacing: -0.02em; color: var(--text); margin-bottom: 0.9rem; }
+    .lead { font-size: 0.975rem; font-weight: 300; color: var(--muted); max-width: 480px; line-height: 1.75; }
+    hr.divider { border: none; border-top: 1px solid var(--border); }
+
+    /* FEATURES GRID */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1px; margin-top: 3rem;
+      background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    .feat { background: var(--surface); padding: 1.8rem 1.8rem 2rem; transition: background 0.2s; }
+    .feat:hover { background: var(--bg); }
+    .feat-icon { font-size: 1.25rem; margin-bottom: 1rem; display: block; }
+    .feat-title { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 0.4rem; }
+    .feat-desc { font-size: 0.825rem; font-weight: 300; color: var(--muted); line-height: 1.65; }
+
+    /* STACK */
+    .stack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 2.5rem; }
+    .stack-item { display: flex; align-items: center; gap: 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; }
+    .stack-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 500; padding: 0.25rem 0.55rem; border-radius: 4px; flex-shrink: 0; }
+    .sb-php   { background: #ede9f8; color: #7c3aed; }
+    .sb-mysql { background: #e0f0ff; color: #1d6fb8; }
+    .sb-apache { background: #fde8e8; color: #b91c1c; }
+    .sb-mail  { background: #e0f9e0; color: var(--accent); }
+    .sb-cache { background: #fef9e0; color: #92400e; }
+    .sb-nginx { background: #e0f5ea; color: #065f46; }
+    .stack-name { font-size: 0.85rem; font-weight: 500; color: var(--text); }
+    .stack-ver  { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--subtle); margin-top: 0.1rem; }
+
+    /* INSTALL */
+    .install-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+    @media (max-width: 760px) { .install-layout { grid-template-columns: 1fr; } }
+    .install-steps { display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2.5rem; }
+    .install-step { display: grid; grid-template-columns: 28px 1fr; gap: 1rem; align-items: start; }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--text); color: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 500;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .step-title { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-bottom: 0.3rem; }
+    .step-desc { font-size: 0.82rem; font-weight: 300; color: var(--muted); line-height: 1.6; }
+    .code-inline {
+      display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem;
+      background: var(--surface2); border: 1px solid var(--border-strong);
+      border-radius: 3px; padding: 0.12rem 0.45rem; color: var(--text); margin-top: 0.4rem;
+    }
+    .code-block {
+      margin-top: 0.6rem; background: #1a1a1a; border-radius: 6px;
+      padding: 0.65rem 1rem; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .code-prompt { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: #555; }
+    .code-cmd    { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: #86efac; flex: 1; }
+    .copy-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.4); font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+      padding: 0.2rem 0.55rem; border-radius: 3px; cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.3); }
+    .copy-btn.ok { color: #86efac; border-color: rgba(134,239,172,0.4); }
+
+    /* TREE */
+    .tree {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; line-height: 1.85;
+      color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.4rem 1.6rem; margin-top: 2.5rem;
+    }
+    .tree-dir  { color: var(--text); font-weight: 500; }
+    .tree-note { color: var(--subtle); font-size: 0.7rem; }
+
+    .access-box { margin-top: 1.5rem; padding: 1.3rem 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    .access-row { display: flex; align-items: center; gap: 0.75rem; }
+    .access-row + .access-row { margin-top: 0.65rem; }
+    .access-label {
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.67rem; padding: 0.2rem 0.5rem;
+      border-radius: 3px; white-space: nowrap;
+    }
+    .al-front { background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-mid); }
+    .al-admin { background: var(--surface2); color: var(--text); border: 1px solid var(--border-strong); }
+    .access-url { font-family: 'IBM Plex Mono', monospace; font-size: 0.77rem; color: var(--muted); }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem clamp(1.5rem, 6vw, 5rem);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    }
+    .footer-logo { font-family: 'Instrument Serif', serif; font-size: 1.05rem; color: var(--muted); text-decoration: none; }
+    .footer-logo span { color: var(--accent); font-style: italic; }
+    .footer-meta { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--subtle); display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .footer-meta a { color: inherit; text-decoration: none; }
+    .footer-meta a:hover { color: var(--muted); }
+
+    /* THEME TOGGLE */
+    .theme-toggle {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface2); border: 1px solid var(--border-strong);
+      border-radius: 8px; cursor: pointer; flex-shrink: 0;
+    }
+    .theme-toggle:hover { opacity: 0.75; }
+    .theme-toggle svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-sun  { display: none; }
+    .icon-moon { display: block; }
+    html.dark .icon-sun  { display: block; }
+    html.dark .icon-moon { display: none; }
+    /* Dark badge overrides */
+    html.dark .sb-php   { background: rgba(124,58,237,0.15); color: #c4b5fd; }
+    html.dark .sb-mysql { background: rgba(29,111,184,0.15); color: #7dd3fc; }
+    html.dark .sb-apache { background: rgba(185,28,28,0.15); color: #fca5a5; }
+    html.dark .sb-mail  { background: rgba(200,240,96,0.1);  color: #c8f060; }
+    html.dark .sb-cache { background: rgba(251,191,36,0.1);  color: #fbbf24; }
+    html.dark .sb-nginx { background: rgba(6,95,70,0.2);     color: #6ee7b7; }
+    html.dark .hero-card { box-shadow: 0 4px 40px rgba(200,240,96,0.05); }
+    html.dark .feat:hover { background: #161620; }
+
+    /* WHY GRID */
+    .why-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.2rem; margin-top: 2.5rem;
+    }
+    .why-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.6rem 1.6rem 1.8rem; transition: border-color 0.2s; }
+    .why-item:hover { border-color: var(--border-strong); }
+    .why-icon { font-size: 1.3rem; margin-bottom: 0.75rem; }
+    .why-title { font-size: 0.88rem; font-weight: 600; color: var(--text); margin-bottom: 0.35rem; }
+    .why-body { font-size: 0.815rem; font-weight: 300; color: var(--muted); line-height: 1.65; }
+
+    /* FUNC LIST */
+    .func-list { list-style: none; display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.2rem; }
+    .func-list li { font-size: 0.82rem; color: var(--muted); font-weight: 300; line-height: 1.5; }
+    @media (max-width: 600px) { .func-split { grid-template-columns: 1fr !important; } }
+
+    /* REVEAL */
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.55s ease, transform 0.55s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    .d1 { transition-delay: 0.08s; } .d2 { transition-delay: 0.16s; } .d3 { transition-delay: 0.24s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (max-width: 600px) { .nav-links { display: none; } }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="#" class="nav-logo">Kira<span>UI</span></a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#stack">Stack</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#why">Why KiraUI</a></li>
+      </ul>
+      <a href="https://github.com/YuSoLAB/KiraUI" target="_blank" class="nav-gh">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.749 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        GitHub
+      </a>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle dark mode">
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 0010 9.79z"/></svg>
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div style="max-width:1100px;margin:0 auto;">
+    <div class="hero">
+      <div class="hero-left">
+        <div class="hero-tag">Personal Blog CMS · PHP</div>
+        <h1>A lightweight CMS<br>built for <em>blogging</em></h1>
+        <p class="hero-desc">KiraUI is a high-performance PHP content management system purpose-built for personal blogs. Modern architecture, responsive design, and a complete admin panel — without the bloat.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/YuSoLAB/KiraUI" target="_blank" class="btn-dark">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.749 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            View on GitHub
+          </a>
+          <a href="https://www.kiraui.org" target="_blank" class="btn-outline">Visit Website ↗</a>
+          <a href="#install" class="btn-outline">Installation Guide ↓</a>
+        </div>
+      </div>
+
+      <div class="hero-card">
+        <div class="card-bar">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="card-url">www.kiraui.org</span>
+        </div>
+        <div class="card-body">
+          <div class="post-item">
+            <span class="post-date">Mar 12</span>
+            <div><div class="post-title">Getting started with KiraUI — a quick setup guide</div><div class="post-tags"><span class="tag">Tutorial</span><span class="tag">PHP</span></div></div>
+          </div>
+          <div class="post-item">
+            <span class="post-date">Mar 08</span>
+            <div><div class="post-title">Why I built my own blog engine instead of using WordPress</div><div class="post-tags"><span class="tag">Opinion</span></div></div>
+          </div>
+          <div class="post-item">
+            <span class="post-date">Feb 27</span>
+            <div><div class="post-title">Optimizing file-based caching in PHP 8 applications</div><div class="post-tags"><span class="tag">Performance</span><span class="tag">PHP</span></div></div>
+          </div>
+          <div class="post-item">
+            <span class="post-date">Feb 14</span>
+            <div><div class="post-title">Dark mode implementation with CSS custom properties</div><div class="post-tags"><span class="tag">CSS</span><span class="tag">UX</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WARNING -->
+  <div class="warn-banner">
+    <span style="font-size:0.9rem;flex-shrink:0;">⚠️</span>
+    <p class="warn-text"><strong>Important:</strong> KiraUI can now be used in edge production environments. Always back up your files and database before updating.</p>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="container">
+      <div class="reveal">
+        <span class="section-eyebrow">Features</span>
+        <h2>Everything a personal blog needs</h2>
+        <p class="lead">From content creation to comment moderation, KiraUI covers the full lifecycle of running a personal blog.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feat reveal d1"><span class="feat-icon">🚀</span><div class="feat-title">High Performance</div><div class="feat-desc">File-based caching reduces database hits and keeps page loads snappy, even under sustained traffic. Friendly to low-spec servers.</div></div>
+        <div class="feat reveal d1"><span class="feat-icon">📱</span><div class="feat-title">Responsive Design</div><div class="feat-desc">Fully adaptive layouts that look great on desktops, tablets, and phones without any extra effort.</div></div>
+        <div class="feat reveal d2"><span class="feat-icon">🔒</span><div class="feat-title">Security Built In</div><div class="feat-desc">Protections against common web vulnerabilities baked into the core — not bolted on as an afterthought.</div></div>
+        <div class="feat reveal d2"><span class="feat-icon">📝</span><div class="feat-title">Article Management</div><div class="feat-desc">Full CRUD for posts with categories and tags. Draft, publish, and organize your content from a clean admin panel.</div></div>
+        <div class="feat reveal d3"><span class="feat-icon">💬</span><div class="feat-title">Comment System</div><div class="feat-desc">Reader comments with threaded replies and admin moderation. Stay in control of your conversations.</div></div>
+        <div class="feat reveal d3"><span class="feat-icon">👥</span><div class="feat-title">User Roles & Permissions</div><div class="feat-desc">Multi-user support with role-based access control for collaborative blog setups.</div></div>
+        <div class="feat reveal d1"><span class="feat-icon">📧</span><div class="feat-title">Email Notifications</div><div class="feat-desc">Integrated PHPMailer handles transactional emails — comment alerts, password resets, and more.</div></div>
+        <div class="feat reveal d2"><span class="feat-icon">🌗</span><div class="feat-title">Light / Dark Theme</div><div class="feat-desc">One-click theme toggle with persistent preference, powered by CSS custom properties and a small JS module.</div></div>
+        <div class="feat reveal d3"><span class="feat-icon">🔍</span><div class="feat-title">SEO Friendly</div><div class="feat-desc">Clean URL structure, optimized meta tags, and semantic HTML give your posts the best chance of being discovered.</div></div>
+        <div class="feat reveal d1"><span class="feat-icon">🔄</span><div class="feat-title">Built-in Updater</div><div class="feat-desc">Online update from the admin panel with automatic database and file backup — your data is always preserved.</div></div>
+        <div class="feat reveal d2"><span class="feat-icon">📄</span><div class="feat-title">Page & Menu Manager</div><div class="feat-desc">Manage static pages and site navigation menus directly from the dashboard, no file editing needed.</div></div>
+        <div class="feat reveal d3"><span class="feat-icon">⚡</span><div class="feat-title">Cache Management</div><div class="feat-desc">Clear and refresh the file cache on demand from the admin panel for instant content updates.</div></div>
+      </div>
+
+      <!-- Frontend / Admin breakdown -->
+      <div class="func-split reveal" style="margin-top:3rem; display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+        <div class="access-box">
+          <span class="section-eyebrow" style="margin-bottom:0.9rem;">Frontend</span>
+          <ul class="func-list">
+            <li>📰 Latest posts homepage</li>
+            <li>📖 Article detail with comments</li>
+            <li>👤 User profile & settings center</li>
+            <li>🔍 Full-text keyword search</li>
+          </ul>
+        </div>
+        <div class="access-box">
+          <span class="section-eyebrow" style="margin-bottom:0.9rem;">Admin Panel</span>
+          <ul class="func-list">
+            <li>📊 Dashboard with site statistics</li>
+            <li>✏️ Publish, edit &amp; delete articles</li>
+            <li>👥 User registration &amp; permissions</li>
+            <li>💬 Comment review &amp; moderation</li>
+            <li>⚙️ System settings &amp; site info</li>
+            <li>📄 Pages &amp; menu management</li>
+            <li>🔄 Cache flush &amp; online update</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- STACK -->
+  <section id="stack">
+    <div class="container">
+      <div class="reveal">
+        <span class="section-eyebrow">Tech Stack</span>
+        <h2>Pragmatic and proven</h2>
+        <p class="lead">Built on widely-supported, battle-tested technologies. No exotic dependencies, no lock-in.</p>
+      </div>
+      <div class="stack-grid">
+        <div class="stack-item reveal d1"><span class="stack-badge sb-php">PHP</span><div><div class="stack-name">PHP</div><div class="stack-ver">8.0 or higher</div></div></div>
+        <div class="stack-item reveal d1"><span class="stack-badge sb-mysql">SQL</span><div><div class="stack-name">MySQL</div><div class="stack-ver">8.0 or higher</div></div></div>
+        <div class="stack-item reveal d2"><span class="stack-badge sb-apache">HTTP</span><div><div class="stack-name">Apache</div><div class="stack-ver">mod_rewrite required</div></div></div>
+        <div class="stack-item reveal d2"><span class="stack-badge sb-nginx">HTTP</span><div><div class="stack-name">Nginx</div><div class="stack-ver">Rewrite rules needed</div></div></div>
+        <div class="stack-item reveal d3"><span class="stack-badge sb-mail">Mail</span><div><div class="stack-name">PHPMailer</div><div class="stack-ver">v7.0.2</div></div></div>
+        <div class="stack-item reveal d3"><span class="stack-badge sb-cache">Cache</span><div><div class="stack-name">File Cache</div><div class="stack-ver">Zero-dependency</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- INSTALL -->
+  <section id="install">
+    <div class="container">
+      <div class="install-layout">
+        <div>
+          <div class="reveal">
+            <span class="section-eyebrow">Installation</span>
+            <h2>Up and running quickly</h2>
+            <p class="lead">A standard LAMP or LNMP stack is all you need. Follow these steps to get your blog live.</p>
+          </div>
+          <div class="install-steps">
+            <div class="install-step reveal d1">
+              <div class="step-num">1</div>
+              <div>
+                <div class="step-title">Clone the repository</div>
+                <div class="step-desc">Download the project and upload it to your web server's root directory.</div>
+                <div class="code-block"><span class="code-prompt">$</span><span class="code-cmd" id="cmd1">git clone https://github.com/YuSoLAB/KiraUI</span><button class="copy-btn" onclick="copy('cmd1',this)">copy</button></div>
+              </div>
+            </div>
+            <div class="install-step reveal d1">
+              <div class="step-num">2</div>
+              <div>
+                <div class="step-title">Set up your environment</div>
+                <div class="step-desc">Install PHP 8.0+, MySQL 8.0+, and Apache or Nginx. Enable <span class="code-inline">mod_rewrite</span> on Apache, or configure rewrite rules on Nginx.</div>
+              </div>
+            </div>
+            <div class="install-step reveal d2">
+              <div class="step-num">3</div>
+              <div>
+                <div class="step-title">Install dependencies</div>
+                <div class="step-desc">The source ships with all required libraries. Only run this if you need to update them.</div>
+                <div class="code-block"><span class="code-prompt">$</span><span class="code-cmd" id="cmd2">composer install</span><button class="copy-btn" onclick="copy('cmd2',this)">copy</button></div>
+              </div>
+            </div>
+            <div class="install-step reveal d2">
+              <div class="step-num">4</div>
+              <div>
+                <div class="step-title">Initialize via the admin panel</div>
+                <div class="step-desc">Create a MySQL database, then visit the setup page to complete initial configuration.</div>
+                <span class="code-inline">/admin/admin</span>
+              </div>
+            </div>
+            <div class="install-step reveal d3">
+              <div class="step-num">5</div>
+              <div>
+                <div class="step-title">Start blogging</div>
+                <div class="step-desc">Your blog is live at the domain root. Manage everything from the admin dashboard.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal d2" style="padding-top:0.5rem;">
+          <span class="section-eyebrow">Project Structure</span>
+          <div class="tree">
+<span class="tree-dir">KiraUI/</span>
+├── <span class="tree-dir">admin/</span>       <span class="tree-note">— back-end management</span>
+├── <span class="tree-dir">cache/</span>       <span class="tree-note">— file cache storage</span>
+├── <span class="tree-dir">img/</span>         <span class="tree-note">— static image assets</span>
+├── <span class="tree-dir">include/</span>     <span class="tree-note">— core class library</span>
+├── <span class="tree-dir">uploads/</span>     <span class="tree-note">— user-uploaded files</span>
+├── <span class="tree-dir">vendor/</span>      <span class="tree-note">— Composer dependencies</span>
+├── <span class="tree-note">.htaccess     — Apache rewrite rules</span>
+├── <span class="tree-note">index.php     — front-end entry point</span>
+└── <span class="tree-note">README.md</span>
+          </div>
+          <div class="access-box">
+            <span class="section-eyebrow" style="margin-bottom:0.9rem;">Access Points</span>
+            <div class="access-row">
+              <span class="access-label al-front">Front</span>
+              <span class="access-url">www.kiraui.org/</span>
+            </div>
+            <div class="access-row">
+              <span class="access-label al-admin">Admin</span>
+              <span class="access-url">www.kiraui.org/admin/admin</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- WHY KIRAUI -->
+  <section id="why">
+    <div class="container">
+      <div class="reveal">
+        <span class="section-eyebrow">Philosophy</span>
+        <h2>Why KiraUI exists</h2>
+        <p class="lead">The goal is a simple, efficient CMS for personal blogs — without wasted resources or unnecessary complexity.</p>
+      </div>
+      <div class="why-grid reveal d1">
+        <div class="why-item">
+          <div class="why-icon">🎯</div>
+          <div class="why-title">No animation bloat</div>
+          <div class="why-body">Storage space and render performance are not wasted on showy animations that add no value to readers.</div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">🖥️</div>
+          <div class="why-title">Low-spec friendly</div>
+          <div class="why-body">Designed to run smoothly on cheap shared hosting and handle high-traffic blogs without expensive hardware.</div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">🆓</div>
+          <div class="why-title">Completely free</div>
+          <div class="why-body">Features that other platforms charge for as premium plugins are built in and open-source under GPL 2.0.</div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">📦</div>
+          <div class="why-title">Out of the box</div>
+          <div class="why-body">No marketplace of required paid themes or plugins. Everything you need to run a blog ships in the repository.</div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">🚫</div>
+          <div class="why-title">Escape WordPress</div>
+          <div class="why-body">Break free from WordPress's heavy resource consumption, sprawling plugin ecosystem, and expensive premium themes.</div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">🔧</div>
+          <div class="why-title">Batteries included</div>
+          <div class="why-body">PHPMailer, file caching, SEO routing, dark mode, and user management — all integrated, zero configuration glue required.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- NGINX CONFIG -->
+  <section id="nginx">
+    <div class="container">
+      <div class="reveal">
+        <span class="section-eyebrow">Nginx Reference</span>
+        <h2>Running on Nginx</h2>
+        <p class="lead">KiraUI is developed on Apache, but Nginx is fully supported. Use this rewrite configuration as a starting point.</p>
+      </div>
+      <div class="reveal d1" style="margin-top:2rem;">
+        <div class="code-block" style="border-radius:10px; padding:1.4rem 1.6rem; flex-direction:column; align-items:flex-start; gap:0; font-size:0.78rem; line-height:1.85;">
+          <div style="display:flex;justify-content:space-between;width:100%;align-items:center;margin-bottom:0.8rem;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:#555;">nginx.conf (server block)</span>
+            <button class="copy-btn" onclick="copy('nginxcfg',this)">copy</button>
+          </div>
+          <pre id="nginxcfg" class="code-cmd" style="white-space:pre;margin:0;background:none;padding:0;">server {
+    listen 80;
+    server_name www.kiraui.org;
+    root /path/to/your-project;
+
+    index index.php;
+
+    location ~* ^/favicon\.(ico|png|svg)$ {
+        try_files /img/favicon.$1 =404;
+    }
+
+    if ($request_uri ~ "^/index\.php(\?.*)?$") {
+        return 301 /;
+    }
+
+    set $php_redir "";
+    if ($request_method = GET)                        { set $php_redir "G"; }
+    if ($uri ~ "^/(index|get_download_url)\.php")     { set $php_redir "skip"; }
+    if ($php_redir = "G") {
+        rewrite ^/([^/]+)\.php$ /$1 permanent;
+    }
+    rewrite ^/([^./]+(?:/[^./]+)*)/?$ /$1.php last;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+}</pre>
+        </div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-top:1rem;line-height:1.6;">⚠️ This is a reference configuration. Adjust paths and server_name to match your environment. For most setups with modest traffic, Apache with <span class="code-inline">mod_rewrite</span> is the recommended and simpler choice.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <a href="https://www.kiraui.org" target="_blank" class="footer-logo">Kira<span>UI</span></a>
+    <div class="footer-meta">
+      <a href="https://www.kiraui.org" target="_blank">www.kiraui.org</a>
+      <a href="https://github.com/YuSoLAB/KiraUI" target="_blank">GitHub</a>
+      <a href="https://github.com/YuSoLAB/KiraUI/issues" target="_blank">Issues</a>
+      <a href="https://github.com/YuSoLAB" target="_blank">YuSoLAB</a>
+      <span>GPL 2.0 License</span>
+    </div>
+  </footer>
+
+  <script>
+    // Theme
+    (function() {
+      if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+    })();
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    // Scroll reveal
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); } });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+    function copy(id, btn) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent.trim()).then(() => {
+        btn.textContent = 'copied!'; btn.classList.add('ok');
+        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('ok'); }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

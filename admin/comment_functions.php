@@ -72,7 +72,7 @@ function initArticleComments($articleId) {
 function getArticleComments($articleId) {
     $db = Db::getInstance();
     $stmt = $db->prepare("SELECT * FROM comments 
-        WHERE article_id = ? AND parent_id IS NULL 
+        WHERE article_id = ? AND parent_id IS NULL AND approved = 1
         ORDER BY created_at DESC");
     $stmt->execute([$articleId]);
     $comments = $stmt->fetchAll();
@@ -210,7 +210,7 @@ function addNewComment($articleId, $data) {
     }
     $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'] === true;
     if ($isLoggedIn) {
-        $email = $_SESSION['user']['email'];
+        $email = $_SESSION['user']['email'] ?? '';
         $name = $_SESSION['user']['nickname'];
         $status = checkUserStatus($_SESSION['user']['id']);
         if ($status == 'banned') {
@@ -234,7 +234,8 @@ function addNewComment($articleId, $data) {
     if (empty($settings['enable_comments'])) {
         return ['success' => false, 'message' => '评论功能已关闭'];
     }
-    if (!isEmailAllowed($email, $settings)) {
+    // 登录用户若未绑定邮箱（手机号注册），跳过邮箱域名校验
+    if (!($isLoggedIn && $email === '') && !isEmailAllowed($email, $settings)) {
         return ['success' => false, 'message' => '该邮箱不允许发送评论'];
     }
     $db = Db::getInstance();
@@ -263,13 +264,17 @@ function addNewComment($articleId, $data) {
             $needsModeration = true;
         }
     }
+    // ── 获取登录用户 ID（访客为 null）─────────────────────────
+    $userId = $isLoggedIn ? (int)$_SESSION['user']['id'] : null;
+
     try {
         $stmt = $db->prepare("INSERT INTO comments 
-            (article_id, parent_id, name, email, email_hash, content, approved)
-            VALUES (?, ?, ?, ?, ?, ?, ?)");
+            (article_id, parent_id, user_id, name, email, email_hash, content, approved)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $articleId,
             $parentId,
+            $userId,        // ← 修复 Bug 2：保存登录用户 ID
             $name,
             $email,
             $emailHash,
@@ -284,10 +289,12 @@ function addNewComment($articleId, $data) {
         }
 
         return [
-            'success' => true,
-            'message' => $needsModeration ? '评论已提交，等待审核' : '评论已发布',
+            'success'          => true,
+            'message'          => $needsModeration ? '评论已提交，等待审核' : '评论已发布',
             'needs_moderation' => $needsModeration,
-            'new_comment_id' => $newCommentId,
+            'approved'         => !$needsModeration, // ← 修复 Bug 3：统一键名，comment_ajax.php 直接可用
+            'comment_id'       => $newCommentId,     // ← 修复 Bug 3：统一键名
+            'new_comment_id'   => $newCommentId,     // 保留旧键，向后兼容
         ];
     } catch (PDOException $e) {
         return ['success' => false, 'message' => '评论提交失败: ' . $e->getMessage()];

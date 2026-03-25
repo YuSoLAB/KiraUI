@@ -30,8 +30,12 @@ $users = $stmt->fetchAll();
 $emailSettings = getRegistrationEmailSettings();
 // 读取注册开关状态（依赖 Config 类，admin_functions 已在上方 require）
 $registrationEnabled = '1'; // 默认开启
+$registrationMode    = 'phone'; // 默认手机号模式
 if (class_exists('Config')) {
-    $registrationEnabled = Config::getInstance()->get('registration_enabled', '1');
+    $cfg                 = Config::getInstance();
+    $registrationEnabled = $cfg->get('registration_enabled', '1');
+    $registrationMode    = $cfg->get('registration_mode', 'phone');
+    if (!in_array($registrationMode, ['phone', 'email', 'both'])) { $registrationMode = 'phone'; }
 }
 ?>
 <style>
@@ -50,6 +54,26 @@ if (class_exists('Config')) {
 #registrationToggle:checked ~ .reg-toggle-track .reg-toggle-thumb,
 .reg-toggle-wrap.on .reg-toggle-track .reg-toggle-thumb { left:21px; }
 body.dark-mode .reg-toggle-track { background:#444; }
+
+/* ── 注册模式选择卡 ── */
+.reg-mode-card {
+    display:flex;flex-direction:column;align-items:center;gap:.3rem;
+    padding:.9rem 1.2rem;border-radius:12px;cursor:pointer;user-select:none;
+    border:2px solid rgba(155,140,255,.25);background:var(--admin-card,#fff);
+    transition:border-color .2s,background .2s,box-shadow .2s;
+    min-width:120px;flex:1;max-width:180px;text-align:center;
+}
+.reg-mode-card:hover { border-color:#9b8cff;box-shadow:0 2px 10px rgba(108,93,251,.12); }
+.reg-mode-card.active {
+    border-color:#6c5dfb;background:rgba(108,93,251,.06);
+    box-shadow:0 2px 14px rgba(108,93,251,.2);
+}
+.rmc-icon { font-size:1.5rem;line-height:1; }
+.rmc-name { font-size:.88rem;font-weight:700;color:var(--text,#1a1a2e); }
+.rmc-desc { font-size:.73rem;color:var(--sub,#888);line-height:1.35; }
+body.dark-mode .reg-mode-card { background:#1e1e32;border-color:rgba(176,160,255,.2); }
+body.dark-mode .reg-mode-card.active { background:rgba(108,93,251,.14);border-color:#9b8cff; }
+body.dark-mode .rmc-name { color:#eaeaea; }
 
 .usr-row { display:grid; grid-template-columns:48px 1fr 1fr 1.4fr 120px 90px auto; gap:.4rem; align-items:center; padding:.55rem 1rem; border-bottom:1px solid rgba(155,140,255,.12); font-size:.84rem; }
 .usr-row:last-child { border-bottom:none; }
@@ -119,6 +143,37 @@ body.dark-mode textarea::placeholder { color: #6b6b8a !important; }
             <span id="registrationToggleMsg" style="font-size:.82rem;display:none;"></span>
         </div>
         <p style="margin:.7rem 0 0;font-size:.78rem;color:var(--sub,#999);">关闭后，访客访问注册页时将看到「当前站点已关闭注册」的提示。</p>
+    </div>
+
+    <!-- 注册模式 -->
+    <div class="mbuilder" style="padding:1.2rem;margin-bottom:1rem;">
+        <p style="margin:0 0 .9rem;font-size:.83rem;font-weight:700;color:#6c5dfb;">⚙️ 注册模式</p>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;" id="regModeGroup">
+            <?php
+            $modes = [
+                'phone' => ['📱', '仅手机号', '手机号 + 短信验证码注册'],
+                'email' => ['📧', '仅邮箱',   '邮箱 + 邮件验证码注册'],
+                'both'  => ['🔗', '双重验证', '手机号 + 邮箱均需验证'],
+            ];
+            foreach ($modes as $val => [$icon, $name, $desc]):
+                $active = $registrationMode === $val;
+            ?>
+            <label class="reg-mode-card <?php echo $active ? 'active' : ''; ?>" data-val="<?php echo $val; ?>">
+                <input type="radio" name="registration_mode" value="<?php echo $val; ?>"
+                       <?php echo $active ? 'checked' : ''; ?> style="display:none;">
+                <span class="rmc-icon"><?php echo $icon; ?></span>
+                <span class="rmc-name"><?php echo $name; ?></span>
+                <span class="rmc-desc"><?php echo $desc; ?></span>
+            </label>
+            <?php endforeach; ?>
+        </div>
+        <div style="margin-top:.85rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;">
+            <button type="button" id="saveRegMode" class="btn btn-primary" style="height:38px;font-size:.85rem;padding:0 1.2rem;">💾 保存注册模式</button>
+            <span id="regModeMsg" style="font-size:.82rem;display:none;"></span>
+        </div>
+        <p style="margin:.65rem 0 0;font-size:.78rem;color:var(--sub,#999);">
+            切换模式后立即生效，注册页面 / 找回密码均会同步适配。
+        </p>
     </div>
 
     <!-- 用户列表 -->
@@ -197,9 +252,116 @@ body.dark-mode textarea::placeholder { color: #6b6b8a !important; }
         </form>
     </div>
 
+    <!-- 阿里云短信设置 -->
+    <?php
+    $smsKeyId  = class_exists('Config') ? Config::getInstance()->get('aliyun_access_key_id',    '') : '';
+    $smsKeySec = class_exists('Config') ? Config::getInstance()->get('aliyun_access_key_secret', '') : '';
+    $smsSign   = class_exists('Config') ? Config::getInstance()->get('aliyun_sms_sign_name',     '') : '';
+    $smsTpl    = class_exists('Config') ? Config::getInstance()->get('aliyun_sms_template_code', '100001') : '100001';
+    ?>
+    <div class="mbuilder" style="padding:1.2rem;margin-top:1rem;">
+        <p style="margin:0 0 .4rem;font-size:.83rem;font-weight:700;color:#6c5dfb;">📱 阿里云短信认证设置</p>
+        <p style="margin:0 0 1rem;font-size:.78rem;color:var(--sub,#999);">
+            注册时手机号短信验证所需的凭证。对应阿里云「号码认证服务」(dypnsapi)。
+            <a href="https://ram.console.aliyun.com/" target="_blank" rel="noopener" style="color:#6c5dfb;">获取 AccessKey →</a>
+        </p>
+        <form id="smsSettingsForm">
+            <div class="mfrow2" style="margin-bottom:.8rem;">
+                <div class="mfg">
+                    <label>AccessKey ID <span style="color:#e74c3c;">*</span></label>
+                    <input type="text" name="aliyun_access_key_id"
+                           value="<?php echo htmlspecialchars($smsKeyId); ?>"
+                           placeholder="LTAIxxxxxxxxxx"
+                           style="padding:.48rem .72rem;border:1px solid var(--admin-border,rgba(155,140,255,.4));border-radius:8px;font-size:.86rem;background:var(--admin-card,#fff);color:inherit;width:100%;box-sizing:border-box;">
+                </div>
+                <div class="mfg">
+                    <label>AccessKey Secret <span style="color:#e74c3c;">*</span></label>
+                    <input type="password" name="aliyun_access_key_secret"
+                           value="<?php echo htmlspecialchars($smsKeySec); ?>"
+                           placeholder="留空则保持原值不变"
+                           style="padding:.48rem .72rem;border:1px solid var(--admin-border,rgba(155,140,255,.4));border-radius:8px;font-size:.86rem;background:var(--admin-card,#fff);color:inherit;width:100%;box-sizing:border-box;">
+                </div>
+            </div>
+            <div class="mfrow2" style="margin-bottom:1rem;">
+                <div class="mfg">
+                    <label>短信签名</label>
+                    <input type="text" name="aliyun_sms_sign_name"
+                           value="<?php echo htmlspecialchars($smsSign); ?>"
+                           placeholder="速通互联验证码"
+                           style="padding:.48rem .72rem;border:1px solid var(--admin-border,rgba(155,140,255,.4));border-radius:8px;font-size:.86rem;background:var(--admin-card,#fff);color:inherit;width:100%;box-sizing:border-box;">
+                    <small style="color:var(--sub,#999);">需在阿里云控制台审核通过的签名</small>
+                </div>
+                <div class="mfg">
+                    <label>模板 CODE</label>
+                    <input type="text" name="aliyun_sms_template_code"
+                           value="<?php echo htmlspecialchars($smsTpl); ?>"
+                           placeholder="100001"
+                           style="padding:.48rem .72rem;border:1px solid var(--admin-border,rgba(155,140,255,.4));border-radius:8px;font-size:.86rem;background:var(--admin-card,#fff);color:inherit;width:100%;box-sizing:border-box;">
+                    <small style="color:var(--sub,#999);">注册场景建议使用 100001（登录/注册模板）</small>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;">
+                <button type="submit" id="smsSettingsBtn" class="btn btn-primary">💾 保存短信设置</button>
+                <button type="button" id="smsTestBtn" class="btn btn-secondary">🔍 连接测试</button>
+                <span id="smsSettingsMsg" style="font-size:.82rem;display:none;"></span>
+            </div>
+        </form>
+    </div>
+
 </div>
 
 <script>
+// ── 注册模式选择 ───────────────────────────────────────
+(function () {
+    var cards   = document.querySelectorAll('.reg-mode-card');
+    var saveBtn = document.getElementById('saveRegMode');
+    var msg     = document.getElementById('regModeMsg');
+    if (!cards.length || !saveBtn) return;
+
+    // 卡片点击高亮
+    cards.forEach(function (card) {
+        card.addEventListener('click', function () {
+            cards.forEach(function (c) { c.classList.remove('active'); });
+            card.classList.add('active');
+            card.querySelector('input[type=radio]').checked = true;
+        });
+    });
+
+    // 保存
+    saveBtn.addEventListener('click', async function () {
+        var selected = document.querySelector('input[name=registration_mode]:checked');
+        if (!selected) return;
+
+        var orig = saveBtn.textContent;
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中…';
+        msg.style.display = 'none';
+
+        var fd = new FormData();
+        fd.append('type',               'config');
+        fd.append('config_action',      'save_registration');
+        fd.append('registration_mode',  selected.value);
+        fd.append('registration_enabled',
+            document.getElementById('registrationToggle')?.checked ? '1' : '0');
+
+        try {
+            var r = await fetch('admin_ajax.php', { method: 'POST', body: fd });
+            var d = await r.json();
+            msg.textContent   = d.msg || (d.ok ? '已保存' : '保存失败');
+            msg.style.color   = d.ok ? '#27ae60' : '#e74c3c';
+            msg.style.display = 'inline';
+            setTimeout(function () { msg.style.display = 'none'; }, 2500);
+        } catch (err) {
+            msg.textContent   = '网络错误，请重试';
+            msg.style.color   = '#e74c3c';
+            msg.style.display = 'inline';
+        } finally {
+            saveBtn.disabled    = false;
+            saveBtn.textContent = orig;
+        }
+    });
+})();
+
 // ── 注册开关 ──────────────────────────────────────────
 (function () {
     var checkbox = document.getElementById('registrationToggle');
@@ -274,6 +436,62 @@ body.dark-mode textarea::placeholder { color: #6b6b8a !important; }
         } finally {
             btn.disabled = false;
             btn.textContent = orig;
+        }
+    });
+})();
+
+// ── 阿里云短信设置 ─────────────────────────────────────
+(function () {
+    var form    = document.getElementById('smsSettingsForm');
+    var testBtn = document.getElementById('smsTestBtn');
+    if (!form) return;
+
+    async function postSms(extraFields) {
+        var fd = new FormData(form);
+        fd.append('type', 'user');
+        for (var k in extraFields) fd.append(k, extraFields[k]);
+        return fetch('admin_ajax.php', { method: 'POST', body: fd }).then(r => r.json());
+    }
+
+    function showMsg(d) {
+        var msg  = document.getElementById('smsSettingsMsg');
+        msg.textContent   = d.msg || (d.ok ? '操作成功' : '操作失败');
+        msg.style.color   = d.ok ? '#27ae60' : '#e74c3c';
+        msg.style.display = 'inline';
+        setTimeout(function () { msg.style.display = 'none'; }, 4000);
+    }
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn  = document.getElementById('smsSettingsBtn');
+        var orig = btn.textContent;
+        btn.disabled    = true;
+        btn.textContent = '保存中…';
+        document.getElementById('smsSettingsMsg').style.display = 'none';
+        try {
+            var d = await postSms({ user_action: 'save_sms_settings' });
+            showMsg(d);
+        } catch (err) {
+            showMsg({ ok: false, msg: '网络错误，请重试' });
+        } finally {
+            btn.disabled    = false;
+            btn.textContent = orig;
+        }
+    });
+
+    testBtn && testBtn.addEventListener('click', async function () {
+        var orig = testBtn.textContent;
+        testBtn.disabled    = true;
+        testBtn.textContent = '测试中…';
+        document.getElementById('smsSettingsMsg').style.display = 'none';
+        try {
+            var d = await postSms({ user_action: 'test_sms_connection' });
+            showMsg(d);
+        } catch (err) {
+            showMsg({ ok: false, msg: '网络错误，请重试' });
+        } finally {
+            testBtn.disabled    = false;
+            testBtn.textContent = orig;
         }
     });
 })();

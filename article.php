@@ -14,6 +14,7 @@ require_once __DIR__ . '/include/Config.php';
 require_once 'cache/ArticleIndex.php';
 require_once 'cache/FileCache.php';
 require_once ROOT_DIR . '/admin/comment_functions.php';
+require_once ROOT_DIR . '/admin/badge_functions.php';
 
 $article = loadArticleFromCache($id);
 if ($article === false) {
@@ -113,11 +114,14 @@ function parse_shortcodes($content) {
     $content = preg_replace_callback(
         '/\[image url="(.*?)" alt="(.*?)"\]/',
         function($matches) {
-            $url = $matches[1];
-            if (!preg_match('/^https?:\/\//i', $url)) {
+            // 先反解码：消除 contenteditable innerHTML 保存时产生的 &amp; → &
+            // 防止 htmlspecialchars() 二次编码导致浏览器请求出现字面量 &amp;
+            $url = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            // 仅对"裸域名"补全 https://；相对路径（以 /、. 或 PHP 文件开头）保持原样
+            if (!preg_match('/^https?:\/\//i', $url) && !preg_match('/^(?:\/|\.\.?\/|[\w.\-]+\.php)/i', $url)) {
                 $url = 'https://' . $url;
             }
-            return '<div style="margin: 15px 0; text-align: center;"><img src="' . htmlspecialchars($url) . '" alt="' . htmlspecialchars($matches[2]) . '" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(155,140,255,.15);"></div>';
+            return '<div style="margin: 15px 0; text-align: center;"><img src="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($matches[2], ENT_QUOTES, 'UTF-8') . '" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(155,140,255,.15);"></div>';
         },
         $content
     );
@@ -125,12 +129,13 @@ function parse_shortcodes($content) {
     $content = preg_replace_callback(
         '/\[video url="(.*?)"\]/',
         function($matches) {
-            $url = $matches[1];
-            if (!preg_match('/^https?:\/\//i', $url)) {
+            // 先反解码：消除 contenteditable innerHTML 保存时产生的 &amp; → &
+            $url = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            // 仅对"裸域名"补全 https://；相对路径（以 /、. 或 PHP 文件开头）保持原样
+            if (!preg_match('/^https?:\/\//i', $url) && !preg_match('/^(?:\/|\.\.?\/|[\w.\-]+\.php)/i', $url)) {
                 $url = 'https://' . $url;
             }
-
-            return '<div style="margin: 15px 0;"><video src="' . htmlspecialchars($url) . '" controls style="width: 100%; border-radius: 8px; background: #f1f1f1;">您的浏览器不支持视频播放</video></div>';
+            return '<div style="margin: 15px 0;"><video src="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" controls style="max-width: 100%; height: auto; border-radius: 8px; background: #f1f1f1;">您的浏览器不支持视频播放</video></div>';
         },
         $content
     );
@@ -527,11 +532,19 @@ $navMenus = getNavMenuTree();
                         ?>
                         <div class="fb-comment fb-reply" id="comment_<?php echo $reply['id']; ?>">
                             <div class="fb-comment-head">
-                                <img src="<?php echo getCommentAvatar($reply['email'], $reply['user_id'] ?? 0); ?>"
-                                     alt="<?php echo htmlspecialchars($reply['name']); ?>"
-                                     class="fb-avatar">
+                                <?php
+                                $_rp_uid   = (int)($reply['user_id'] ?? 0);
+                                $_rp_badge = ($_rp_uid > 0) ? getUserBadge($_rp_uid) : null;
+                                echo renderAvatarWithBadge(
+                                    getCommentAvatar($reply['email'], $_rp_uid),
+                                    $reply['name'],
+                                    $_rp_badge,
+                                    'fb-avatar',
+                                    16
+                                );
+                                ?>
                                 <div class="fb-meta">
-                                    <span class="fb-name"><?php echo htmlspecialchars($reply['name']); ?></span>
+                                    <span class="fb-name"><?php echo htmlspecialchars($reply['name']); ?><?php echo renderUserTitle($_rp_badge); ?></span>
                                     <span class="fb-date"><?php echo $reply['created_at']; ?></span>
                                 </div>
                             </div>
@@ -561,11 +574,19 @@ $navMenus = getNavMenuTree();
                     ?>
                     <div class="fb-comment fb-top-comment" id="comment_<?php echo $comment['id']; ?>">
                         <div class="fb-comment-head">
-                            <img src="<?php echo getCommentAvatar($comment['email'], $comment['user_id'] ?? 0); ?>"
-                                 alt="<?php echo htmlspecialchars($comment['name']); ?>"
-                                 class="fb-avatar">
+                            <?php
+                            $_cm_uid   = (int)($comment['user_id'] ?? 0);
+                            $_cm_badge = ($_cm_uid > 0) ? getUserBadge($_cm_uid) : null;
+                            echo renderAvatarWithBadge(
+                                getCommentAvatar($comment['email'], $_cm_uid),
+                                $comment['name'],
+                                $_cm_badge,
+                                'fb-avatar',
+                                16
+                            );
+                            ?>
                             <div class="fb-meta">
-                                <span class="fb-name"><?php echo htmlspecialchars($comment['name']); ?></span>
+                                <span class="fb-name"><?php echo htmlspecialchars($comment['name']); ?><?php echo renderUserTitle($_cm_badge); ?></span>
                                 <span class="fb-date"><?php echo $comment['created_at']; ?></span>
                             </div>
                         </div>
@@ -723,9 +744,9 @@ $navMenus = getNavMenuTree();
                 return (
                     '<div class="fb-comment ' + typeClass + ' comment-new-flash" id="comment_' + c.id + '">' +
                         '<div class="fb-comment-head">' +
-                            '<img src="' + esc(c.avatar) + '" alt="' + esc(c.name) + '" class="fb-avatar">' +
+                            (c.badge_html || '<div class="ub-avatar-wrap" style="position:relative;display:inline-block;"><img src="' + esc(c.avatar) + '" alt="' + esc(c.name) + '" class="fb-avatar"></div>') +
                             '<div class="fb-meta">' +
-                                '<span class="fb-name">' + esc(c.name) + (pending ? ' <span class="fb-pending-badge">审核中</span>' : '') + '</span>' +
+                                '<span class="fb-name">' + esc(c.name) + (c.title_html || '') + (pending ? ' <span class="fb-pending-badge">审核中</span>' : '') + '</span>' +
                                 '<span class="fb-date">' + esc(c.created_at) + '</span>' +
                             '</div>' +
                         '</div>' +
@@ -863,7 +884,7 @@ $navMenus = getNavMenuTree();
                             content: submitContent,
                             parent_id: parentId,
                             created_at: new Date().toLocaleString('zh-CN', {hour12:false}).replace(/\//g,'-'),
-                            avatar: 'https://www.gravatar.com/avatar/?d=mp&s=38',
+                            avatar: (window.__DEFAULT_AVATAR || 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 60 60%22%3E%3Crect width%3D%2260%22 height%3D%2260%22 rx%3D%2230%22 fill%3D%22%23b0b8c9%22%2F%3E%3Ccircle cx%3D%2230%22 cy%3D%2223%22 r%3D%2210%22 fill%3D%22%23fff%22%2F%3E%3Cellipse cx%3D%2230%22 cy%3D%2248%22 rx%3D%2215%22 ry%3D%2210%22 fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E'),
                         };
                         var isReplyOpt = parentId && parseInt(parentId, 10) !== 0;
                         var htmlOpt    = buildCommentHTML(optimistic, isReplyOpt, replyToName, true);
@@ -1319,6 +1340,14 @@ $navMenus = getNavMenuTree();
     </script>
     <style>
     /* ── AJAX 评论状态提示 ── */
+    .article-content img,
+    .article-content video {
+        /* 保留编辑器中设置的 style="width:Xpx"，但不超出容器 */
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
     .comment-ajax-status {
         margin: 10px 0 14px;
         padding: 10px 16px;

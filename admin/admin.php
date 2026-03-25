@@ -354,6 +354,9 @@ if ($isLoggedIn && $isInitialized) {
                         <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
                             <?php include 'admin_users.php'; ?>
                         </div>
+                        <div id="user_badges-content" class="tab-pane <?php echo $currentPage === 'user_badges' ? 'active' : ''; ?>">
+                            <?php include 'admin_user_badges.php'; ?>
+                        </div>
                         <div id="landing-content" class="tab-pane <?php echo $currentPage === 'landing' ? 'active' : ''; ?>">
                             <?php include 'admin_landing.php'; ?>
                         </div>

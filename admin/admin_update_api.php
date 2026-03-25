@@ -1,11 +1,18 @@
 <?php
 // 更新API
+
+// ▼ 修复：屏蔽 PHP 错误/警告的 HTML 输出，防止污染 JSON 响应
+ini_set('display_errors', 0);
+ob_start();
+
 session_start();
 header('Content-Type: application/json');
 
 // 权限验证
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    die(json_encode(['code' => 403, 'msg' => '未授权']));
+    ob_end_clean();
+    echo json_encode(['code' => 403, 'msg' => '未授权']);
+    exit;
 }
 
 define('ROOT_DIR',   dirname(dirname(__FILE__)));
@@ -31,6 +38,13 @@ $excludes = [
     '.git'
 ];
 
+// ▼ 修复：统一输出 JSON 并清空输出缓冲，防止脏数据污染响应
+function jsonOut(array $data): void {
+    ob_end_clean();
+    echo json_encode($data);
+    exit;
+}
+
 /* ────────────── 更新源 ────────────── */
 function getUpdateSources() {
     global $db;
@@ -40,8 +54,8 @@ function getUpdateSources() {
         if (is_array($data) && isset($data['sources'])) return $data;
     }
     return [
-        'sources' => [['name' => '官方源', 'url' => 'https://www.kiraui.org/api/update.json']],
-        'default' => 'https://www.kiraui.org/api/update.json'
+        'sources' => [['name' => '官方源', 'url' => 'https://www.kiraui.cn/api/update.json']],
+        'default' => 'https://www.kiraui.cn/api/update.json'
     ];
 }
 
@@ -61,8 +75,7 @@ try {
 
         /* ══ 获取更新源 ══ */
         case 'get_update_sources':
-            echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => getUpdateSources()]);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok', 'data' => getUpdateSources()]);
 
         /* ══ 添加更新源 ══ */
         case 'add_update_source':
@@ -76,8 +89,7 @@ try {
             $sources['sources'][] = ['name' => $name, 'url' => $url];
             if (empty($sources['default']) && count($sources['sources']) === 1) $sources['default'] = $url;
             saveUpdateSources($sources);
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 删除更新源 ══ */
         case 'delete_update_source':
@@ -87,8 +99,7 @@ try {
             $sources['sources'] = array_values(array_filter($sources['sources'], fn($s) => $s['url'] !== $url));
             if ($sources['default'] === $url) $sources['default'] = $sources['sources'][0]['url'] ?? '';
             saveUpdateSources($sources);
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 设置默认源 ══ */
         case 'set_default_source':
@@ -99,8 +110,7 @@ try {
             if (!$found) throw new Exception('该URL不在更新源列表中');
             $sources['default'] = $url;
             saveUpdateSources($sources);
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 检查更新 ══ */
         case 'check_update':
@@ -128,18 +138,15 @@ try {
             if ($httpCode !== 200 || $curlError) {
                 $s = getUpdateSources();
                 $other = array_values(array_column(array_filter($s['sources'], fn($x) => $x['url'] !== $sourceUrl), 'url'));
-                echo json_encode(['code' => 500, 'msg' => $curlError ?: "HTTP {$httpCode}", 'available_sources' => $other]);
-                break;
+                jsonOut(['code' => 500, 'msg' => $curlError ?: "HTTP {$httpCode}", 'available_sources' => $other]);
             }
             $data = json_decode($response, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $s = getUpdateSources();
                 $other = array_values(array_column(array_filter($s['sources'], fn($x) => $x['url'] !== $sourceUrl), 'url'));
-                echo json_encode(['code' => 500, 'msg' => '更新信息格式错误', 'available_sources' => $other]);
-                break;
+                jsonOut(['code' => 500, 'msg' => '更新信息格式错误', 'available_sources' => $other]);
             }
-            echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => $data]);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok', 'data' => $data]);
 
         /* ══════════════════════════════════════════
            分片上传 — 接收单个分片
@@ -163,8 +170,7 @@ try {
             if (!move_uploaded_file($_FILES['chunk']['tmp_name'], $chunkFile)) {
                 throw new Exception("无法保存分片 {$chunkIndex}");
             }
-            echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => ['chunk' => $chunkIndex]]);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok', 'data' => ['chunk' => $chunkIndex]]);
 
         /* ══════════════════════════════════════════
            分片上传 — 合并所有分片
@@ -206,8 +212,7 @@ try {
             }
             $zip->close();
 
-            echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => ['temp_path' => UPDATE_ZIP_PATH]]);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok', 'data' => ['temp_path' => UPDATE_ZIP_PATH]]);
 
         /* ══════════════════════════════════════════
            下载更新包（写入下载状态供前端轮询）
@@ -282,8 +287,7 @@ try {
                 'total'      => $downloaded,
             ]));
 
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══════════════════════════════════════════
            查询下载进度（前端轮询）
@@ -292,11 +296,10 @@ try {
             if (file_exists(DL_STATUS_FILE)) {
                 $raw  = file_get_contents(DL_STATUS_FILE);
                 $data = json_decode($raw, true);
-                echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => $data ?: ['status' => 'idle']]);
+                jsonOut(['code' => 200, 'msg' => 'ok', 'data' => $data ?: ['status' => 'idle']]);
             } else {
-                echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => ['status' => 'idle']]);
+                jsonOut(['code' => 200, 'msg' => 'ok', 'data' => ['status' => 'idle']]);
             }
-            break;
 
         /* ══ 备份 ══ */
         case 'backup':
@@ -322,8 +325,7 @@ try {
             $zip->close();
 
             $_SESSION['last_backup_file'] = $backupFile;
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 验证 ══ */
         case 'verify':
@@ -333,8 +335,7 @@ try {
                 $actual = hash_file('sha256', UPDATE_ZIP_PATH);
                 if ($actual !== $expectedHash) throw new Exception('文件哈希值不匹配，可能已损坏');
             }
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 解压 ══ */
         case 'extract':
@@ -343,8 +344,7 @@ try {
             if ($zip->open(UPDATE_ZIP_PATH) !== true) throw new Exception('解压更新包失败');
             $zip->extractTo(UPDATE_TEMP);
             $zip->close();
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 覆盖文件 ══ */
         case 'apply':
@@ -384,8 +384,7 @@ try {
             }
             if (function_exists('opcache_reset')) @opcache_reset();
             clearstatcache();
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 清理 ══ */
         case 'cleanup':
@@ -399,8 +398,7 @@ try {
                 foreach ($it as $fi) { $fi->isDir() ? @rmdir($fi->getRealPath()) : @unlink($fi->getRealPath()); }
                 @rmdir(UPDATE_TEMP);
             }
-            echo json_encode(['code' => 200, 'msg' => 'ok']);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok']);
 
         /* ══ 回滚 ══ */
         case 'rollback':
@@ -430,30 +428,27 @@ try {
                 }
             }
             $zip->close();
-            echo json_encode(['code' => 200, 'msg' => '回滚成功']);
-            break;
+            jsonOut(['code' => 200, 'msg' => '回滚成功']);
 
         /* ══ 数据库迁移 ══ */
         case 'db_migrate':
             $migrationsDir = ROOT_DIR . '/migrations';
             if (!is_dir($migrationsDir)) {
-                echo json_encode(['code' => 200, 'msg' => 'no migrations', 'data' => []]);
-                break;
+                jsonOut(['code' => 200, 'msg' => 'no migrations', 'data' => []]);
             }
             require_once ROOT_DIR . '/include/DbMigrator.php';
             $migrator = new DbMigrator($db, $migrationsDir);
             $pending  = $migrator->getPending();
             if (empty($pending)) {
-                echo json_encode(['code' => 200, 'msg' => 'already up-to-date', 'data' => []]);
-                break;
+                jsonOut(['code' => 200, 'msg' => 'already up-to-date', 'data' => []]);
             }
             $results = $migrator->runPending();
-            echo json_encode(['code' => 200, 'msg' => 'ok', 'data' => $results]);
-            break;
+            jsonOut(['code' => 200, 'msg' => 'ok', 'data' => $results]);
 
         default:
             throw new Exception('未知的更新步骤');
     }
 } catch (Exception $e) {
+    ob_end_clean();
     echo json_encode(['code' => 500, 'msg' => $e->getMessage()]);
 }

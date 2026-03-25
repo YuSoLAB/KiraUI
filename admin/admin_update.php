@@ -134,6 +134,19 @@
 let updateData = null;
 const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB per chunk
 
+/* ─── 修复：统一 fetch 封装，先取 text 再安全 JSON.parse ─── */
+async function safeFetch(url, init) {
+    const res  = await fetch(url, init);
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        // 截取前80字符用于日志，避免 HTML 大段内容
+        const preview = text.slice(0, 80).replace(/</g, '&lt;');
+        throw new Error('服务器响应非 JSON（' + preview + '…）');
+    }
+}
+
 /* ─── 初始化 ─── */
 document.addEventListener('DOMContentLoaded', function () {
     loadCurrentVersion();
@@ -261,8 +274,7 @@ async function startManualUpdate() {
         fd.append('step', 'upload_chunk_merge');
         fd.append('total_chunks', totalChunks);
         fd.append('upload_id', uploadId);
-        const mergeRes  = await fetch('admin_update_api.php', { method: 'POST', body: fd });
-        const mergeJson = await mergeRes.json();
+        const mergeJson = await safeFetch('admin_update_api.php', { method: 'POST', body: fd });
         if (mergeJson.code !== 200) throw new Error(mergeJson.msg);
 
         setTimeout(() => {
@@ -338,7 +350,7 @@ async function pollDl() {
     try {
         const fd = new FormData();
         fd.append('step', 'download_status');
-        const j = await (await fetch('admin_update_api.php', { method:'POST', body:fd })).json();
+        const j = await safeFetch('admin_update_api.php', { method:'POST', body:fd });
         if (j.code !== 200 || !j.data) return;
         const { downloaded = 0, total = 0, status } = j.data;
         const now = Date.now(), dt = (now - dlLastTime) / 1000;
@@ -363,7 +375,7 @@ async function pollDl() {
 async function loadUpdateSources() {
     try {
         const fd = new FormData(); fd.append('step', 'get_update_sources');
-        const result = await (await fetch('admin_update_api.php', { method:'POST', body:fd })).json();
+        const result = await safeFetch('admin_update_api.php', { method:'POST', body:fd });
         if (result.code !== 200) return;
         const sources = result.data.sources || [];
         const defUrl  = result.data.default || (sources.length ? sources[0].url : '');
@@ -413,7 +425,7 @@ async function addUpdateSource() {
     if (!name || !url) return alert('请填写名称和URL');
     const fd = new FormData();
     fd.append('step','add_update_source'); fd.append('name',name); fd.append('url',url);
-    const r = await (await fetch('admin_update_api.php',{method:'POST',body:fd})).json();
+    const r = await safeFetch('admin_update_api.php', {method:'POST', body:fd});
     if (r.code === 200) { document.getElementById('new-source-name').value=''; document.getElementById('new-source-url').value=''; loadUpdateSources(); }
     else alert('添加失败：' + r.msg);
 }
@@ -421,13 +433,13 @@ async function addUpdateSource() {
 async function deleteUpdateSource(url) {
     if (!confirm('确定要删除该更新源吗？')) return;
     const fd = new FormData(); fd.append('step','delete_update_source'); fd.append('url',url);
-    const r = await (await fetch('admin_update_api.php',{method:'POST',body:fd})).json();
+    const r = await safeFetch('admin_update_api.php', {method:'POST', body:fd});
     if (r.code === 200) loadUpdateSources(); else alert('删除失败：' + r.msg);
 }
 
 async function setDefaultSource(url) {
     const fd = new FormData(); fd.append('step','set_default_source'); fd.append('url',url);
-    const r = await (await fetch('admin_update_api.php',{method:'POST',body:fd})).json();
+    const r = await safeFetch('admin_update_api.php', {method:'POST', body:fd});
     if (r.code === 200) loadUpdateSources(); else alert('设置失败：' + r.msg);
 }
 
@@ -440,7 +452,7 @@ async function checkUpdate() {
     const sourceUrl = document.getElementById('update-source-select').value;
     try {
         const fd = new FormData(); fd.append('step','check_update'); fd.append('source_url',sourceUrl);
-        const result = await (await fetch('admin_update_api.php',{method:'POST',body:fd})).json();
+        const result = await safeFetch('admin_update_api.php', {method:'POST', body:fd});
         if (result.code === 200 && result.data) {
             const data = result.data;
             if (data.version !== currentVersion) {
@@ -522,7 +534,8 @@ async function executeUpdateQueue(isManual, fileSource, hash = '') {
             fd.append('step', step.id);
             if (fileSource) fd.append('file_source', fileSource);
             if (hash)       fd.append('hash', hash);
-            const result = await (await fetch('admin_update_api.php',{method:'POST',body:fd})).json();
+            // 修复：使用 safeFetch 替代直接 .json()，防止 apply 后新文件输出 HTML 导致解析失败
+            const result = await safeFetch('admin_update_api.php', {method:'POST', body:fd});
             if (step.dlProgress) stopDownloadPoll();
             if (result.code !== 200) throw new Error(result.msg);
             if (step.id === 'db_migrate') {
@@ -544,20 +557,40 @@ async function executeUpdateQueue(isManual, fileSource, hash = '') {
     setTimeout(() => window.location.reload(), 2000);
 }
 
+/* ════════════════════════════════════
+   修复：回滚 — text-first 安全解析
+   ════════════════════════════════════ */
 async function triggerRollback() {
     try {
-        const fd = new FormData(); fd.append('step','rollback');
-        const res = await fetch('admin_update_api.php',{method:'POST',body:fd});
-        const ct  = res.headers.get('content-type') || '';
-        if (!ct.includes('application/json')) {
-            const text = await res.text();
-            log(text.includes('login')||text.includes('未授权')
-                ? '回滚失败：会话已过期，请重新登录后手动恢复备份文件。'
-                : '回滚失败：服务器响应格式错误，请检查系统状态。', 'error'); return;
+        const fd = new FormData();
+        fd.append('step', 'rollback');
+        const res  = await fetch('admin_update_api.php', { method: 'POST', body: fd });
+        const text = await res.text();
+
+        let r;
+        try {
+            r = JSON.parse(text);
+        } catch {
+            // body 不是合法 JSON（如 PHP Fatal Error 输出 HTML）
+            const preview = text.slice(0, 80).replace(/</g, '&lt;');
+            log(
+                text.includes('login') || text.includes('未授权')
+                    ? '回滚失败：会话已过期，请重新登录后手动恢复 cache/backups 目录中的备份文件。'
+                    : '回滚失败：服务器响应格式错误（' + preview + '…），请检查系统状态并手动恢复备份。',
+                'error'
+            );
+            return;
         }
-        const r = await res.json();
-        log(r.code===200 ? '回滚成功，系统已恢复原样。' : '回滚失败：'+(r.msg||'未知错误')+'，请手动恢复 cache/backups 目录！', r.code===200?'success':'error');
-    } catch (e) { log('回滚请求异常: ' + e.message, 'error'); }
+
+        log(
+            r.code === 200
+                ? '回滚成功，系统已恢复原样。'
+                : '回滚失败：' + (r.msg || '未知错误') + '，请手动恢复 cache/backups 目录！',
+            r.code === 200 ? 'success' : 'error'
+        );
+    } catch (e) {
+        log('回滚请求异常: ' + e.message, 'error');
+    }
 }
 
 window.addEventListener('load', loadUpdateSources);

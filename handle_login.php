@@ -58,12 +58,13 @@ if ($loginId === '' || $password === '') {
     failAndRedirect('请输入账号和密码');
 }
 
-// ── Step 3：查询用户 ───────────────────────────────────────
+// ── Step 3：查询用户（智能路由） ──────────────────────────────
+// · 11 位纯数字 → 优先手机号，其次用户名
+// · 含 @       → 优先邮箱（仅限已绑定），其次用户名
+// · 其他       → 仅用户名
 try {
-    $db   = Db::getInstance();
-    $stmt = $db->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
-    $stmt->execute([$loginId, $loginId]);
-    $user = $stmt->fetch();
+    $db = Db::getInstance();
+    $user = resolveUser($db, $loginId);
 } catch (PDOException $e) {
     $_SESSION['login_error'] = '登录失败，请稍后重试';
     header('Location: login.php');
@@ -193,6 +194,39 @@ if (isset($_POST['remember_me']) && $_POST['remember_me'] === 'on') {
     } catch (PDOException $e) {
         error_log('记住我令牌保存失败: ' . $e->getMessage());
     }
+}
+
+// ── 辅助：按标识符智能查找用户 ──────────────────────────────────
+function resolveUser(PDO $db, string $id): mixed
+{
+    if (preg_match('/^\d{11}$/', $id)) {
+        // 11 位数字：优先手机号
+        $s = $db->prepare("SELECT * FROM users WHERE phone = ? LIMIT 1");
+        $s->execute([$id]);
+        $u = $s->fetch();
+        if ($u) return $u;
+        // 降级：用户名
+        $s = $db->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+        $s->execute([$id]);
+        return $s->fetch();
+    }
+    if (strpos($id, '@') !== false) {
+        // 含 @：优先邮箱（必须已绑定，即 email 非空非 null）
+        $s = $db->prepare(
+            "SELECT * FROM users WHERE email = ? AND email IS NOT NULL AND email != '' LIMIT 1"
+        );
+        $s->execute([$id]);
+        $u = $s->fetch();
+        if ($u) return $u;
+        // 降级：用户名
+        $s = $db->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+        $s->execute([$id]);
+        return $s->fetch();
+    }
+    // 其他：仅用户名
+    $s = $db->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+    $s->execute([$id]);
+    return $s->fetch();
 }
 
 header('Location: index.php');

@@ -1,5 +1,7 @@
 {
     "require": {
-        "phpmailer/phpmailer": "*"
+        "phpmailer/phpmailer": "*",
+        "alibabacloud/dysmsapi-20180501": "1.0.12",
+        "alibabacloud/dypnsapi-20170525": "^2.0"
     }
 }

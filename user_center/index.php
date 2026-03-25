@@ -19,6 +19,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'upload_avatar':
             require __DIR__ . '/actions/upload_avatar.php';
             exit;
+
+        // ── 手机号绑定 AJAX ────────────────────────────────────────
+        case 'send_phone_code':
+            $_POST['sub_action'] = 'send_code';
+            require __DIR__ . '/actions/bind_phone.php';
+            exit;
+        case 'verify_phone_bind':
+            $_POST['sub_action'] = 'verify_bind';
+            require __DIR__ . '/actions/bind_phone.php';
+            exit;
+
         // ── 通知相关 AJAX ──────────────────────────────────────
         case 'mark_read':
         case 'mark_all_read':

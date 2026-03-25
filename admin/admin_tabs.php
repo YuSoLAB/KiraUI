@@ -65,6 +65,8 @@
         data-tab="email_notify" data-url="?page=email_notify">邮件通知</div>
     <div class="tab <?php echo $currentPage === 'users' ? 'active' : ''; ?>" 
         data-tab="users" data-url="?page=users">用户管理</div>
+    <div class="tab <?php echo $currentPage === 'user_badges' ? 'active' : ''; ?>" 
+        data-tab="user_badges" data-url="?page=user_badges">认证管理</div>
     <div class="tab <?php echo $currentPage === 'landing' ? 'active' : ''; ?>" 
         data-tab="landing" data-url="?page=landing">展示页面管理</div>
     <div class="tab <?php echo $currentPage === 'social' ? 'active' : ''; ?>" 

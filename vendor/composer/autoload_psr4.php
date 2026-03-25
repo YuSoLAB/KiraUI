@@ -6,5 +6,18 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-factory/src', $vendorDir . '/psr/http-message/src'),
+    'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
+    'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
+    'GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
+    'GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),
+    'Darabonba\\OpenApi\\' => array($vendorDir . '/alibabacloud/openapi-core/src'),
+    'Darabonba\\GatewaySpi\\' => array($vendorDir . '/alibabacloud/gateway-spi/src'),
+    'AlibabaCloud\\Tea\\' => array($vendorDir . '/alibabacloud/tea/src'),
+    'AlibabaCloud\\SDK\\Dysmsapi\\V20180501\\' => array($vendorDir . '/alibabacloud/dysmsapi-20180501/src'),
+    'AlibabaCloud\\SDK\\Dypnsapi\\V20170525\\' => array($vendorDir . '/alibabacloud/dypnsapi-20170525/src'),
+    'AlibabaCloud\\Dara\\' => array($vendorDir . '/alibabacloud/darabonba/src'),
+    'AlibabaCloud\\Credentials\\' => array($vendorDir . '/alibabacloud/credentials/src'),
+    'Adbar\\' => array($vendorDir . '/adbario/php-dot-notation/src'),
 );

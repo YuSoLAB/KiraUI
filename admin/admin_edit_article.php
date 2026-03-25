@@ -417,7 +417,28 @@
     font-family:Consolas,Monaco,monospace; font-size:.88em; overflow:auto;
 }
 .ea-visual-editor a { color:#6c5dfb; }
-.ea-visual-editor img { max-width:100%; border-radius:4px; }
+.ea-visual-editor img,
+.ea-visual-editor video {
+    max-width:100%; border-radius:4px;
+    cursor:pointer;
+    transition:outline .12s;
+}
+/* 选中媒体元素时的蓝色轮廓（备用，主要由 JS overlay 显示） */
+.ea-visual-editor img.ea-media-sel,
+.ea-visual-editor video.ea-media-sel {
+    outline:2px solid #6c5dfb;
+    outline-offset:2px;
+}
+/* resize overlay 工具栏 dark mode */
+body.dark-mode #eaMediaOverlay #eaMediaTb {
+    background:var(--dark-admin-card,#2a2a42);
+    border-color:var(--dark-admin-border);
+    color:var(--dark-text,#eaeaea);
+}
+body.dark-mode #eaMediaOverlay #eaMediaTb input {
+    background:#1e1e2e; border-color:var(--dark-admin-border);
+    color:var(--dark-text,#eaeaea);
+}
 
 /* ── Code editor ── */
 .ea-code-editor {
@@ -839,31 +860,45 @@ function _renderFileInsertOpts(f) {
 }
 window.eaInsertFile = function(mode) {
     if (!_fileSel) return;
-    const f   = _fileSel;
-    let sc = '';
-    if (mode === 'img') {
-        sc = `[image url="${f.url}" alt="${f.name}"]`;
-    } else if (mode === 'video') {
-        sc = `[video url="${f.url}"]`;
-    } else if (mode === 'download') {
-        sc = `[download text="${f.name}" url="${f.url}"]`;
-    } else {
-        sc = `<a href="${f.url}" target="_blank" rel="noopener">${f.name}</a>`;
-    }
-    // Get eaMode and editor from outer scope (articleForm scope)
-    const visual = document.getElementById('eaVisual');
-    const code   = document.getElementById('eaCode');
-    const modeEl = document.getElementById('btnVisual');
-    const isVisual = modeEl && modeEl.classList.contains('ea-mode-active');
-    if (isVisual && mode !== 'link') {
+    const f = _fileSel;
+    const visual   = document.getElementById('eaVisual');
+    const code     = document.getElementById('eaCode');
+    const isVisual = document.getElementById('btnVisual')?.classList.contains('ea-mode-active');
+
+    /* 编辑器显示用 URL（../serve_media.php），保存时会被 _htmlForSave 还原 */
+    const displayUrl = f.url.replace(/^serve_media\.php/, '../serve_media.php');
+
+    if (isVisual) {
         visual.focus();
-        document.execCommand('insertText', false, sc);
-    } else if (isVisual && mode === 'link') {
-        visual.focus();
-        document.execCommand('insertHTML', false, sc);
+        if (mode === 'img') {
+            document.execCommand('insertHTML', false,
+                `<img src="${displayUrl}" alt="${f.name}" style="width:60%;max-width:100%;border-radius:8px;display:block;margin:12px auto;">`
+            );
+        } else if (mode === 'video') {
+            document.execCommand('insertHTML', false,
+                `<video src="${displayUrl}" controls style="width:100%;max-width:100%;border-radius:8px;display:block;margin:12px auto;"></video>`
+            );
+        } else if (mode === 'download') {
+            document.execCommand('insertText', false, `[download text="${f.name}" url="${f.url}"]`);
+        } else { // link
+            document.execCommand('insertHTML', false,
+                `<a href="${f.url}" target="_blank" rel="noopener">${f.name}</a>`
+            );
+        }
     } else {
+        /* 代码模式：使用保存格式的 URL（serve_media.php） */
+        let sc = '';
+        if (mode === 'img') {
+            sc = `[image url="${f.url}" alt="${f.name}"]`;
+        } else if (mode === 'video') {
+            sc = `[video url="${f.url}"]`;
+        } else if (mode === 'download') {
+            sc = `[download text="${f.name}" url="${f.url}"]`;
+        } else {
+            sc = `<a href="${f.url}" target="_blank" rel="noopener">${f.name}</a>`;
+        }
         const s = code.selectionStart, e = code.selectionEnd;
-        code.value = code.value.slice(0,s) + sc + code.value.slice(e);
+        code.value = code.value.slice(0, s) + sc + code.value.slice(e);
         code.selectionStart = code.selectionEnd = s + sc.length;
         code.focus();
     }
@@ -888,8 +923,57 @@ document.addEventListener('keydown', function(e) {
     const code    = document.getElementById('eaCode');
     const form    = document.getElementById('articleForm');
 
+    /* ══════════════════════════════════════════════
+       URL 双向转换
+       管理后台在子目录中，serve_media.php 在根目录：
+         保存/文章页 用 serve_media.php?...
+         编辑器显示  用 ../serve_media.php?...
+       ══════════════════════════════════════════════ */
+
+    /**
+     * 把 HTML 中的 serve_media.php src/href 转为编辑器可显示的路径
+     * serve_media.php → ../serve_media.php
+     * 同时修正浏览器可能写入的绝对 URL（http://host/.../serve_media.php）
+     */
+    function _htmlForEditor(html) {
+        if (!html) return html;
+        // 先把浏览器可能已经写入的绝对 URL 剥成相对路径
+        html = _stripAbsoluteMediaUrls(html);
+        // serve_media.php → ../serve_media.php（不重复处理已有 ../ 的）
+        html = html.replace(/(src|href)="(?!\.\.\/)(serve_media\.php[^"]*?)"/gi,
+                            '$1="../$2"');
+        return html;
+    }
+
+    /**
+     * 把 HTML 中的编辑器路径还原为保存用路径
+     * ../serve_media.php → serve_media.php
+     * 以及清理浏览器写入的绝对 URL
+     */
+    function _htmlForSave(html) {
+        if (!html) return html;
+        html = _stripAbsoluteMediaUrls(html);
+        html = html.replace(/(src|href)="\.\.\/serve_media\.php/gi,
+                            '$1="serve_media.php');
+        return html;
+    }
+
+    /**
+     * 把浏览器插入的绝对 URL 形式的 serve_media.php 剥成纯相对路径
+     * e.g. http://localhost:8080/yusolab/serve_media.php → serve_media.php
+     */
+    function _stripAbsoluteMediaUrls(html) {
+        // 匹配任意 origin + 路径前缀 + serve_media.php
+        return html.replace(
+            /(src|href)="https?:\/\/[^"]*?\/serve_media\.php/gi,
+            '$1="serve_media.php'
+        );
+    }
+
+    /* ── 初始化：把已有内容的 URL 转换为编辑器可显示格式 ── */
+    visual.innerHTML = _htmlForEditor(visual.innerHTML);
+
     /* ── 工具栏点击不抢走编辑器焦点（保留选区） ── */
-    /* select 元素的下拉依赖 mousedown 默认行为，需排除在外 */
     document.getElementById('eaToolbar').addEventListener('mousedown', function(e) {
         if (e.target.tagName === 'SELECT') return;
         e.preventDefault();
@@ -899,13 +983,15 @@ document.addEventListener('keydown', function(e) {
     window.eaSwitchMode = function(mode) {
         if (mode === eaMode) return;
         if (mode === 'code') {
-            code.value = visual.innerHTML;
+            /* visual → code：还原为保存格式，让用户在代码里看到干净的 URL */
+            code.value = _htmlForSave(visual.innerHTML);
             visual.style.display = 'none';
             code.style.display   = 'block';
             document.getElementById('eaToolbar').style.opacity = '.4';
             document.getElementById('eaToolbar').style.pointerEvents = 'none';
         } else {
-            visual.innerHTML     = code.value;
+            /* code → visual：转换为编辑器显示格式 */
+            visual.innerHTML = _htmlForEditor(code.value);
             code.style.display   = 'none';
             visual.style.display = 'block';
             document.getElementById('eaToolbar').style.opacity = '';
@@ -921,9 +1007,11 @@ document.addEventListener('keydown', function(e) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // 1. 同步可视化编辑器内容到隐藏 textarea
+            // 1. 同步可视化编辑器内容到隐藏 textarea（还原 URL 为保存格式）
             if (eaMode === 'visual') {
-                code.value = visual.innerHTML;
+                code.value = _htmlForSave(visual.innerHTML);
+            } else {
+                code.value = _htmlForSave(code.value);
             }
             code.name = 'content';
 
@@ -1042,11 +1130,47 @@ document.addEventListener('keydown', function(e) {
         });
     };
 
-    /* ── 短代码插入 ── */
+    /* ── 短代码 / 媒体插入 ── */
     window.eaShortcode = function(type) {
+        /* ---- 图片：可视化模式直接插入 <img>，代码模式用短代码 ---- */
+        if (type === 'image') {
+            const url = prompt('图片URL：', '');
+            if (!url) return;
+            const alt = prompt('图片描述(alt)：', '') || '';
+            if (eaMode === 'visual') {
+                visual.focus();
+                document.execCommand('insertHTML', false,
+                    `<img src="${url}" alt="${alt}" style="width:60%;max-width:100%;border-radius:8px;display:block;margin:12px auto;">`
+                );
+            } else {
+                const sc = `[image url="${url}" alt="${alt}"]`;
+                const s = code.selectionStart, e = code.selectionEnd;
+                code.value = code.value.slice(0, s) + sc + code.value.slice(e);
+                code.selectionStart = code.selectionEnd = s + sc.length;
+                code.focus();
+            }
+            return;
+        }
+        /* ---- 视频：可视化模式直接插入 <video>，代码模式用短代码 ---- */
+        if (type === 'video') {
+            const url = prompt('视频URL：', '');
+            if (!url) return;
+            if (eaMode === 'visual') {
+                visual.focus();
+                document.execCommand('insertHTML', false,
+                    `<video src="${url}" controls style="width:100%;max-width:100%;border-radius:8px;display:block;margin:12px auto;"></video>`
+                );
+            } else {
+                const sc = `[video url="${url}"]`;
+                const s = code.selectionStart, e = code.selectionEnd;
+                code.value = code.value.slice(0, s) + sc + code.value.slice(e);
+                code.selectionStart = code.selectionEnd = s + sc.length;
+                code.focus();
+            }
+            return;
+        }
+        /* ---- 其他短代码（code / link / download / encrypted_download）---- */
         const templates = {
-            image:              () => { const s = prompt('图片URL：',''); if (!s) return null; const a = prompt('图片描述(alt)：',''); return `[image url="${s}" alt="${a||''}"]`; },
-            video:              () => { const s = prompt('视频URL：',''); return s ? `[video url="${s}"]` : null; },
             code:               () => { const l = prompt('语言（如 php/js/python）：','html'); return `[code lang="${l||'html'}"]代码内容[/code]`; },
             link:               () => { const u=prompt('链接URL：',''); const t=prompt('按钮文字：','点击查看'); return (u&&t)?`[link text="${t}" url="${u}"]`:null; },
             download:           () => { const u=prompt('文件URL：',''); const t=prompt('按钮文字：','下载文件'); return (u&&t)?`[download text="${t}" url="${u}"]`:null; },
@@ -1099,6 +1223,268 @@ document.addEventListener('keydown', function(e) {
             document.execCommand('insertHTML', false, '<br>');
         }
     });
+
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════
+     媒体元素（图片 / 视频）可视化调整大小系统
+     ══════════════════════════════════════════════════ -->
+<script>
+(function () {
+    'use strict';
+
+    const visual = document.getElementById('eaVisual');
+    if (!visual) return;
+
+    /* ── 状态 ── */
+    let selEl      = null;   // 当前选中的 img / video
+    let overlay    = null;   // resize overlay DOM（懒创建）
+    let isDragging = false;
+    let dragPos    = '';     // 句柄方向 nw/n/ne/e/se/s/sw/w
+    let dragStartX = 0;
+    let dragStartW = 0;      // 拖动开始时元素宽度（px）
+
+    /* ════════════════════════════════
+       创建 overlay（仅执行一次）
+    ════════════════════════════════ */
+    function buildOverlay() {
+        const ov = document.createElement('div');
+        ov.id = 'eaMediaOverlay';
+        ov.style.cssText = 'display:none;position:fixed;z-index:9200;pointer-events:none;box-sizing:border-box;';
+
+        /* 选中边框 */
+        const border = document.createElement('div');
+        border.style.cssText = 'position:absolute;inset:-2px;border:2px solid #6c5dfb;border-radius:3px;pointer-events:none;';
+        ov.appendChild(border);
+
+        /* 工具栏（显示于元素上方） */
+        const tb = document.createElement('div');
+        tb.id = 'eaMediaTb';
+        tb.style.cssText = [
+            'position:absolute;bottom:calc(100% + 8px);left:0;',
+            'display:flex;align-items:center;gap:5px;flex-wrap:wrap;',
+            'background:var(--admin-card,#fff);',
+            'border:1px solid rgba(108,93,251,.3);border-radius:9px;',
+            'padding:5px 10px;',
+            'box-shadow:0 4px 20px rgba(0,0,0,.18);',
+            'pointer-events:all;white-space:nowrap;font-size:.78rem;',
+        ].join('');
+        tb.innerHTML = `
+            <label style="color:var(--sub,#888);flex-shrink:0;">📐 宽度</label>
+            <input type="number" id="eaMW" min="50" max="2000" step="10"
+                   style="width:64px;border:1px solid rgba(108,93,251,.35);border-radius:5px;
+                          padding:3px 6px;font-size:.78rem;text-align:right;
+                          background:transparent;color:inherit;"
+                   oninput="_eaMWInput(this.value)"
+                   onchange="_eaMWInput(this.value)">
+            <span style="color:var(--sub,#888);flex-shrink:0;">px</span>
+            <div style="width:1px;height:1.2rem;background:rgba(108,93,251,.2);margin:0 3px;flex-shrink:0;"></div>
+            <button type="button" title="左对齐"   onclick="eaMediaAlign('left')"   class="_eaMBtn">≡←</button>
+            <button type="button" title="居中对齐" onclick="eaMediaAlign('center')" class="_eaMBtn">≡</button>
+            <button type="button" title="右对齐"   onclick="eaMediaAlign('right')"  class="_eaMBtn">≡→</button>
+            <div style="width:1px;height:1.2rem;background:rgba(108,93,251,.2);margin:0 3px;flex-shrink:0;"></div>
+            <button type="button" title="宽度 25%"  onclick="eaMediaPct(25)"  class="_eaMBtn _eaMPct">25%</button>
+            <button type="button" title="宽度 50%"  onclick="eaMediaPct(50)"  class="_eaMBtn _eaMPct">50%</button>
+            <button type="button" title="宽度 75%"  onclick="eaMediaPct(75)"  class="_eaMBtn _eaMPct">75%</button>
+            <button type="button" title="宽度 100%" onclick="eaMediaPct(100)" class="_eaMBtn _eaMPct">100%</button>
+            <div style="width:1px;height:1.2rem;background:rgba(108,93,251,.2);margin:0 3px;flex-shrink:0;"></div>
+            <button type="button" title="删除此媒体" onclick="eaMediaDelete()"
+                    style="padding:3px 8px;border:1px solid rgba(231,76,60,.35);border-radius:5px;
+                           background:transparent;cursor:pointer;color:#e74c3c;font-size:.75rem;">🗑 删除</button>
+        `;
+        ov.appendChild(tb);
+
+        /* 工具栏按钮公用样式 */
+        if (!document.getElementById('_eaMBtnStyle')) {
+            const s = document.createElement('style');
+            s.id = '_eaMBtnStyle';
+            s.textContent = `
+                ._eaMBtn {
+                    padding:3px 8px;
+                    border:1px solid rgba(108,93,251,.3);border-radius:5px;
+                    background:transparent;cursor:pointer;color:inherit;font-size:.75rem;
+                    transition:background .12s;
+                }
+                ._eaMBtn:hover { background:rgba(108,93,251,.1); }
+                ._eaMPct { color:#6c5dfb;min-width:36px; }
+            `;
+            document.head.appendChild(s);
+        }
+
+        /* 8 个 resize 句柄 */
+        [
+            { pos:'nw', css:'top:-5px;left:-5px;cursor:nw-resize;' },
+            { pos:'n',  css:'top:-5px;left:calc(50% - 5px);cursor:n-resize;' },
+            { pos:'ne', css:'top:-5px;right:-5px;cursor:ne-resize;' },
+            { pos:'e',  css:'top:calc(50% - 5px);right:-5px;cursor:e-resize;' },
+            { pos:'se', css:'bottom:-5px;right:-5px;cursor:se-resize;' },
+            { pos:'s',  css:'bottom:-5px;left:calc(50% - 5px);cursor:s-resize;' },
+            { pos:'sw', css:'bottom:-5px;left:-5px;cursor:sw-resize;' },
+            { pos:'w',  css:'top:calc(50% - 5px);left:-5px;cursor:w-resize;' },
+        ].forEach(h => {
+            const el = document.createElement('div');
+            el.dataset.pos = h.pos;
+            el.style.cssText = [
+                'position:absolute;width:10px;height:10px;',
+                'background:#6c5dfb;border:2px solid #fff;',
+                'border-radius:2px;pointer-events:all;box-sizing:border-box;',
+                h.css,
+            ].join('');
+            el.addEventListener('mousedown', onHandleMousedown);
+            ov.appendChild(el);
+        });
+
+        document.body.appendChild(ov);
+        return ov;
+    }
+
+    function getOverlay() {
+        if (!overlay) overlay = buildOverlay();
+        return overlay;
+    }
+
+    /* ════════════════════════════════
+       定位 / 显示 / 隐藏 overlay
+    ════════════════════════════════ */
+    function positionOverlay() {
+        if (!selEl) return;
+        const ov   = getOverlay();
+        const rect = selEl.getBoundingClientRect();
+        ov.style.left    = rect.left   + 'px';
+        ov.style.top     = rect.top    + 'px';
+        ov.style.width   = rect.width  + 'px';
+        ov.style.height  = rect.height + 'px';
+        ov.style.display = 'block';
+        const inp = document.getElementById('eaMW');
+        if (inp) inp.value = Math.round(rect.width);
+    }
+
+    function hideOverlay() {
+        const ov = document.getElementById('eaMediaOverlay');
+        if (ov) ov.style.display = 'none';
+        if (selEl) { selEl.classList.remove('ea-media-sel'); selEl = null; }
+    }
+
+    /* ════════════════════════════════
+       点击检测
+    ════════════════════════════════ */
+    visual.addEventListener('click', function (e) {
+        const t = e.target;
+        if (t.tagName === 'IMG' || t.tagName === 'VIDEO') {
+            if (selEl && selEl !== t) selEl.classList.remove('ea-media-sel');
+            selEl = t;
+            selEl.classList.add('ea-media-sel');
+            positionOverlay();
+            e.stopPropagation();
+        } else {
+            hideOverlay();
+        }
+    });
+
+    /* 点击编辑器外部 → 取消选中 */
+    document.addEventListener('mousedown', function (e) {
+        const ov = document.getElementById('eaMediaOverlay');
+        if (!ov || ov.style.display === 'none') return;
+        if (e.target.closest && (e.target.closest('#eaMediaOverlay') || e.target.closest('#eaVisual'))) return;
+        hideOverlay();
+    });
+
+    /* 滚动 / 窗口尺寸变化时更新 overlay 位置 */
+    function refreshPos() {
+        const ov = document.getElementById('eaMediaOverlay');
+        if (ov && ov.style.display !== 'none' && selEl) positionOverlay();
+    }
+    window.addEventListener('scroll', refreshPos, true);
+    window.addEventListener('resize', refreshPos);
+
+    /* ════════════════════════════════
+       拖拽调整大小
+    ════════════════════════════════ */
+    function onHandleMousedown(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!selEl) return;
+        isDragging = true;
+        dragPos    = e.currentTarget.dataset.pos;
+        dragStartX = e.clientX;
+        dragStartW = selEl.getBoundingClientRect().width;
+    }
+
+    document.addEventListener('mousemove', function (e) {
+        if (!isDragging || !selEl) return;
+        /* 仅处理水平拖拽（左 / 右句柄改变宽度）*/
+        let dx = 0;
+        if (dragPos === 'e' || dragPos === 'ne' || dragPos === 'se') {
+            dx = e.clientX - dragStartX;
+        } else if (dragPos === 'w' || dragPos === 'nw' || dragPos === 'sw') {
+            dx = dragStartX - e.clientX;
+        }
+        const newW = Math.max(50, Math.round(dragStartW + dx));
+        selEl.style.width    = newW + 'px';
+        selEl.style.maxWidth = '100%';
+        selEl.removeAttribute('width');
+        selEl.removeAttribute('height');
+        positionOverlay();
+        const inp = document.getElementById('eaMW');
+        if (inp) inp.value = newW;
+    });
+
+    document.addEventListener('mouseup', function () {
+        isDragging = false;
+        dragPos    = '';
+    });
+
+    /* ════════════════════════════════
+       工具栏操作（全局暴露供 onclick 调用）
+    ════════════════════════════════ */
+    window._eaMWInput = function (val) {
+        if (!selEl) return;
+        const n = parseInt(val, 10);
+        if (n >= 50) {
+            selEl.style.width    = n + 'px';
+            selEl.style.maxWidth = '100%';
+            selEl.removeAttribute('width');
+            selEl.removeAttribute('height');
+            positionOverlay();
+        }
+    };
+
+    window.eaMediaAlign = function (align) {
+        if (!selEl) return;
+        selEl.style.display = 'block';
+        selEl.style.float   = '';
+        if (align === 'center') {
+            selEl.style.margin = '12px auto';
+        } else if (align === 'left') {
+            selEl.style.margin = '12px auto 12px 0';
+        } else {
+            selEl.style.margin = '12px 0 12px auto';
+        }
+        positionOverlay();
+    };
+
+    window.eaMediaPct = function (pct) {
+        if (!selEl) return;
+        const containerW = visual.getBoundingClientRect().width || 600;
+        const px = Math.round(containerW * pct / 100);
+        selEl.style.width    = px + 'px';
+        selEl.style.maxWidth = '100%';
+        selEl.removeAttribute('width');
+        selEl.removeAttribute('height');
+        positionOverlay();
+    };
+
+    window.eaMediaDelete = function () {
+        if (!selEl) return;
+        const parent = selEl.parentElement;
+        const alone  = parent && parent !== visual
+                    && parent.children.length === 1
+                    && (parent.textContent || '').trim() === '';
+        if (alone) parent.remove();
+        else       selEl.remove();
+        hideOverlay();
+    };
 
 })();
 </script>

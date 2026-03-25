@@ -6,73 +6,10 @@ require_once 'comment_functions.php';
 
 $db = Db::getInstance();
 
-// ── 处理操作（PRG 模式：POST → Redirect → GET，彻底消除"重新提交表单"提示）──
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $commentId  = intval($_POST['comment_id'] ?? 0);
-    $articleId  = intval($_POST['article_id'] ?? 0);
-    // 携带当前 tab，操作完成后跳回同一个 tab
-    $returnTab  = $_POST['current_tab'] ?? 'pending';
-
-    $msg = '操作失败，请重试';
-    $mt  = 'error';
-
-    switch ($_POST['action']) {
-
-        case 'approve':
-            if (moderateComment($articleId, $commentId, true)) {
-                $msg = '评论已通过审核'; $mt = 'success';
-            }
-            break;
-
-        case 'reject':
-            if (moderateComment($articleId, $commentId, false)) {
-                $msg = '评论已拒绝'; $mt = 'success';
-            }
-            break;
-
-        case 'delete':
-            if (deleteComment($articleId, $commentId)) {
-                $msg = '评论已删除'; $mt = 'success';
-            }
-            break;
-
-        case 'approve_all':
-            $stmt = $db->prepare("UPDATE comments SET approved = 1 WHERE approved = 0");
-            $stmt->execute();
-            $msg = '所有待审评论已批量通过'; $mt = 'success';
-            break;
-
-        case 'update_email_moderation':
-            $emailHash = $_POST['email_hash'] ?? '';
-            $mode      = $_POST['mode'] ?? 'strict';
-            if ($emailHash && in_array($mode, ['auto', 'strict'])) {
-                updateEmailModeration($emailHash, $mode);
-                $msg = '邮箱审核模式已更新'; $mt = 'success';
-            }
-            $returnTab = 'approved'; // 该操作始终在"已通过"tab
-            break;
-
-        case 'save_comment_settings':
-            // 已迁移至 admin_ajax.php (type=comment, comment_action=save_settings)
-            // 此分支仅作向后兼容保留
-            $msg = '请使用新版 AJAX 接口保存设置'; $mt = 'error';
-            $returnTab = 'settings';
-            break;
-    }
-
-    // 因本文件由 admin.php include，页面已有输出，无法用 header()，改用 JS 跳转实现 PRG
-    // 保留原有的 page 参数，避免跳回后台默认首页
-    $basePath  = strtok($_SERVER['REQUEST_URI'], '?');
-    $page      = $_GET['page'] ?? '';
-    $pageParam = $page ? ('page=' . urlencode($page) . '&') : '';
-    $location  = $basePath . '?' . $pageParam . 'msg=' . urlencode($msg) . '&mt=' . urlencode($mt) . '#tab-' . $returnTab;
-    echo '<script>location.replace(' . json_encode($location) . ');</script>';
-    exit;
-}
-
-// ── 从 GET 参数恢复提示消息 ─────────────────────────────────────────────
-$message     = isset($_GET['msg']) ? htmlspecialchars(urldecode($_GET['msg'])) : '';
-$messageType = $_GET['mt'] ?? 'success';
+// ── 所有评论操作已迁移至 AJAX（admin_ajax.php type=comment）──────────────
+// 不再处理 POST，直接读取数据渲染页面。
+$message     = '';
+$messageType = 'success';
 
 // ── 读取数据 ──────────────────────────────────────────────────────────────
 // 待审评论（approved = 0）
@@ -204,20 +141,16 @@ body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select 
     <div id="tab-pending" class="cmt-panel">
         <?php if (count($pendingComments) > 0): ?>
         <div class="bulk-bar">
-            <span>共 <strong><?php echo count($pendingComments); ?></strong> 条待审评论</span>
-            <form method="post" style="margin:0;">
-                <input type="hidden" name="action" value="approve_all">
-                <input type="hidden" name="current_tab" value="pending">
-                <button type="submit" class="btn btn-xs mbtn-e"
-                    onclick="return confirm('确认批量通过所有待审评论？')">✅ 全部通过</button>
-            </form>
+            <span>共 <strong id="pendingCount"><?php echo count($pendingComments); ?></strong> 条待审评论</span>
+            <button type="button" class="btn btn-xs mbtn-e" id="approveAllBtn"
+                onclick="cmtApproveAll()">✅ 全部通过</button>
         </div>
         <div class="mbuilder" style="overflow-x:auto;">
             <div class="mhead" style="grid-template-columns:44px 1fr 130px 110px auto;">
                 <span>头像</span><span>内容</span><span>邮箱</span><span>时间</span><span>操作</span>
             </div>
             <?php foreach ($pendingComments as $cmt): ?>
-            <div class="cmt-row">
+            <div class="cmt-row" id="cmt-row-<?php echo $cmt['id']; ?>">
                 <!-- 头像 -->
                 <div>
                     <?php $avatar = getCommentAvatar($cmt['email'], $cmt['user_id'] ?? null); ?>
@@ -252,28 +185,13 @@ body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select 
                 </span>
                 <!-- 操作 -->
                 <div class="cmt-actions">
-                    <form method="post" style="margin:0;">
-                        <input type="hidden" name="action"      value="approve">
-                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
-                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
-                        <input type="hidden" name="current_tab" value="pending">
-                        <button type="submit" class="btn btn-xs mbtn-e" title="通过">✅</button>
-                    </form>
-                    <form method="post" style="margin:0;">
-                        <input type="hidden" name="action"      value="reject">
-                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
-                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
-                        <input type="hidden" name="current_tab" value="pending">
-                        <button type="submit" class="btn btn-xs" title="拒绝" style="background:rgba(255,193,7,.15);color:#856404;">🚫</button>
-                    </form>
-                    <form method="post" style="margin:0;"
-                          onsubmit="return confirm('确认删除这条评论？')">
-                        <input type="hidden" name="action"      value="delete">
-                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
-                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
-                        <input type="hidden" name="current_tab" value="pending">
-                        <button type="submit" class="btn btn-xs mbtn-d" title="删除">🗑️</button>
-                    </form>
+                    <button type="button" class="btn btn-xs mbtn-e" title="通过"
+                        onclick="cmtAction('approve',<?php echo $cmt['id']; ?>,<?php echo $cmt['article_id']; ?>,this)">✅</button>
+                    <button type="button" class="btn btn-xs" title="拒绝"
+                        style="background:rgba(255,193,7,.15);color:#856404;"
+                        onclick="cmtAction('reject',<?php echo $cmt['id']; ?>,<?php echo $cmt['article_id']; ?>,this)">🚫</button>
+                    <button type="button" class="btn btn-xs mbtn-d" title="删除"
+                        onclick="cmtConfirmDelete(<?php echo $cmt['id']; ?>,<?php echo $cmt['article_id']; ?>,this)">🗑️</button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -295,7 +213,7 @@ body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select 
                 // 从数据库读取该邮箱实际的审核模式，默认为 strict
                 $currentMode = $emailModes[$cmt['email_hash']] ?? 'strict';
             ?>
-            <div class="cmt-row">
+            <div class="cmt-row" id="cmt-row-<?php echo $cmt['id']; ?>">
                 <div>
                     <?php $avatar = getCommentAvatar($cmt['email'], $cmt['user_id'] ?? null); ?>
                     <?php if (strpos($avatar, 'http') === 0): ?>
@@ -321,25 +239,15 @@ body.dark-mode input[type=text], body.dark-mode textarea, body.dark-mode select 
                     <?php echo substr($cmt['created_at'], 0, 16); ?>
                 </span>
                 <div class="cmt-actions">
-                    <!-- 设置邮箱审核模式（正确回显当前模式） -->
-                    <form method="post" style="margin:0;">
-                        <input type="hidden" name="action"      value="update_email_moderation">
-                        <input type="hidden" name="email_hash"  value="<?php echo htmlspecialchars($cmt['email_hash']); ?>">
-                        <input type="hidden" name="current_tab" value="approved">
-                        <select name="mode" style="padding:.25rem .4rem;font-size:.75rem;border:1px solid rgba(155,140,255,.4);border-radius:6px;background:var(--admin-card,#fff);color:inherit;">
-                            <option value="auto"   <?php echo $currentMode === 'auto'   ? 'selected' : ''; ?>>自动通过</option>
-                            <option value="strict" <?php echo $currentMode === 'strict' ? 'selected' : ''; ?>>严格审核</option>
-                        </select>
-                        <button type="submit" class="btn btn-xs" style="font-size:.72rem;">设置</button>
-                    </form>
-                    <form method="post" style="margin:0;"
-                          onsubmit="return confirm('确认删除这条评论？')">
-                        <input type="hidden" name="action"      value="delete">
-                        <input type="hidden" name="comment_id"  value="<?php echo $cmt['id']; ?>">
-                        <input type="hidden" name="article_id"  value="<?php echo $cmt['article_id']; ?>">
-                        <input type="hidden" name="current_tab" value="approved">
-                        <button type="submit" class="btn btn-xs mbtn-d" title="删除">🗑️</button>
-                    </form>
+                    <!-- 设置邮箱审核模式（AJAX，无刷新） -->
+                    <select data-email-hash="<?php echo htmlspecialchars($cmt['email_hash']); ?>"
+                            onchange="cmtUpdateEmailMode(this)"
+                            style="padding:.25rem .4rem;font-size:.75rem;border:1px solid rgba(155,140,255,.4);border-radius:6px;background:var(--admin-card,#fff);color:inherit;">
+                        <option value="auto"   <?php echo $currentMode === 'auto'   ? 'selected' : ''; ?>>自动通过</option>
+                        <option value="strict" <?php echo $currentMode === 'strict' ? 'selected' : ''; ?>>严格审核</option>
+                    </select>
+                    <button type="button" class="btn btn-xs mbtn-d" title="删除"
+                        onclick="cmtConfirmDelete(<?php echo $cmt['id']; ?>,<?php echo $cmt['article_id']; ?>,this)">🗑️</button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -424,11 +332,9 @@ function switchTab(name, el) {
     document.querySelectorAll('.cmt-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
     if (el) el.classList.add('active');
-    // 更新 URL hash，使刷新后能恢复当前 tab（不触发页面滚动）
     history.replaceState(null, '', '#tab-' + name);
 }
 
-// 页面加载时：优先读取 URL hash 恢复 tab
 (function () {
     const hash = location.hash.replace('#tab-', '');
     const validTabs = ['pending', 'approved', 'settings'];
@@ -436,6 +342,158 @@ function switchTab(name, el) {
     const btn = document.querySelector('.cmt-tab[data-tab="' + target + '"]');
     switchTab(target, btn);
 })();
+
+// ── 公共：显示顶部提示条（自动消失）──────────────────────────────────────
+function cmtShowMsg(text, isOk) {
+    var el = document.getElementById('cmtToast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'cmtToast';
+        el.style.cssText = [
+            'position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999',
+            'padding:.55rem 1.4rem;border-radius:10px;font-size:.85rem;font-weight:600',
+            'box-shadow:0 4px 18px rgba(0,0,0,.18);transition:opacity .3s;pointer-events:none'
+        ].join(';');
+        document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.background = isOk ? '#27ae60' : '#e74c3c';
+    el.style.color = '#fff';
+    el.style.opacity = '1';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.style.opacity = '0'; }, 2600);
+}
+
+// ── 公共：更新"待审核"tab 徽章及计数 ────────────────────────────────────
+function cmtUpdatePendingBadge(count) {
+    var countEl = document.getElementById('pendingCount');
+    if (countEl) countEl.textContent = count;
+
+    var tabBtn = document.querySelector('.cmt-tab[data-tab="pending"]');
+    if (!tabBtn) return;
+    var badge = tabBtn.querySelector('.mbadge');
+    if (count > 0) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'mbadge badge-pending';
+            badge.style.marginLeft = '.3rem';
+            tabBtn.appendChild(badge);
+        }
+        badge.textContent = count;
+    } else {
+        if (badge) badge.remove();
+        // 待审列表清空时显示空状态
+        var panel = document.getElementById('tab-pending');
+        if (panel && panel.querySelector('.cmt-row') === null) {
+            var builder = panel.querySelector('.mbuilder');
+            var bulkBar = panel.querySelector('.bulk-bar');
+            if (builder) builder.style.display = 'none';
+            if (bulkBar) bulkBar.style.display = 'none';
+            if (!panel.querySelector('.cmt-empty')) {
+                var emp = document.createElement('div');
+                emp.className = 'cmt-empty';
+                emp.textContent = '🎉 暂无待审核评论';
+                panel.appendChild(emp);
+            }
+        }
+    }
+}
+
+// ── 单条操作：approve / reject / delete ─────────────────────────────────
+async function cmtAction(action, commentId, articleId, btn) {
+    var orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    var fd = new FormData();
+    fd.append('type',           'comment');
+    fd.append('comment_action', action);
+    fd.append('comment_id',     commentId);
+    fd.append('article_id',     articleId);
+
+    try {
+        var r = await fetch('admin_ajax.php', { method: 'POST', body: fd });
+        var d = await r.json();
+        cmtShowMsg(d.msg || (d.ok ? '操作成功' : '操作失败'), d.ok);
+        if (d.ok) {
+            // 从 DOM 移除该行
+            var row = document.getElementById('cmt-row-' + commentId);
+            if (row) {
+                row.style.transition = 'opacity .25s';
+                row.style.opacity = '0';
+                setTimeout(function () { row.remove(); }, 260);
+            }
+            if (typeof d.pending !== 'undefined') {
+                cmtUpdatePendingBadge(d.pending);
+            }
+        } else {
+            btn.disabled = false;
+            btn.textContent = orig;
+        }
+    } catch (err) {
+        cmtShowMsg('网络错误，请重试', false);
+        btn.disabled = false;
+        btn.textContent = orig;
+    }
+}
+
+// ── 删除前确认 ────────────────────────────────────────────────────────────
+function cmtConfirmDelete(commentId, articleId, btn) {
+    if (!confirm('确认删除这条评论？')) return;
+    cmtAction('delete', commentId, articleId, btn);
+}
+
+// ── 批量通过所有待审 ──────────────────────────────────────────────────────
+async function cmtApproveAll() {
+    if (!confirm('确认批量通过所有待审评论？')) return;
+    var btn = document.getElementById('approveAllBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '处理中…'; }
+
+    var fd = new FormData();
+    fd.append('type',           'comment');
+    fd.append('comment_action', 'approve_all');
+
+    try {
+        var r = await fetch('admin_ajax.php', { method: 'POST', body: fd });
+        var d = await r.json();
+        cmtShowMsg(d.msg || (d.ok ? '操作成功' : '操作失败'), d.ok);
+        if (d.ok) {
+            // 移除所有待审行
+            document.querySelectorAll('#tab-pending .cmt-row').forEach(function (row) {
+                row.remove();
+            });
+            cmtUpdatePendingBadge(0);
+        }
+    } catch (err) {
+        cmtShowMsg('网络错误，请重试', false);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✅ 全部通过'; }
+    }
+}
+
+// ── 邮箱审核模式（select onchange 即时保存，无需"设置"按钮）────────────────
+async function cmtUpdateEmailMode(sel) {
+    var emailHash = sel.dataset.emailHash;
+    var mode      = sel.value;
+    var orig      = sel.disabled;
+    sel.disabled  = true;
+
+    var fd = new FormData();
+    fd.append('type',           'comment');
+    fd.append('comment_action', 'update_email_moderation');
+    fd.append('email_hash',     emailHash);
+    fd.append('mode',           mode);
+
+    try {
+        var r = await fetch('admin_ajax.php', { method: 'POST', body: fd });
+        var d = await r.json();
+        cmtShowMsg(d.msg || (d.ok ? '已保存' : '保存失败'), d.ok);
+    } catch (err) {
+        cmtShowMsg('网络错误，请重试', false);
+    } finally {
+        sel.disabled = orig;
+    }
+}
 
 // ── 评论设置 AJAX 保存（无刷新、无白屏）────────────────────────────────────
 (function () {

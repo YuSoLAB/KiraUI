@@ -14,6 +14,7 @@ if (!defined('ROOT_DIR')) {
 
 require_once __DIR__ . '/include/Config.php';
 require_once ROOT_DIR . '/admin/comment_functions.php';
+require_once ROOT_DIR . '/admin/badge_functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -36,7 +37,8 @@ if ($isLoggedIn) {
     $name  = (isset($_SESSION['user']['nickname']) && $_SESSION['user']['nickname'] !== '')
              ? $_SESSION['user']['nickname']
              : ($_SESSION['user']['username'] ?? '');
-    $email = $_SESSION['user']['email'] ?? '';
+    // 手机号注册的用户可能没有邮箱，允许为空字符串
+    $email = trim($_SESSION['user']['email'] ?? '');
 } else {
     $name  = trim($_POST['name']  ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -46,13 +48,21 @@ $content  = trim($_POST['content']   ?? '');
 $parentId = isset($_POST['parent_id']) ? intval($_POST['parent_id']) : 0;
 
 // 基础校验
-if ($name === '' || $email === '' || $content === '') {
-    echo json_encode(['success' => false, 'message' => '昵称、邮箱和评论内容均为必填项']);
-    exit;
-}
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    echo json_encode(['success' => false, 'message' => '邮箱格式不正确']);
-    exit;
+// 登录用户不要求填写邮箱（手机号注册账号可能没有邮箱）
+if ($isLoggedIn) {
+    if ($name === '' || $content === '') {
+        echo json_encode(['success' => false, 'message' => '评论内容不能为空']);
+        exit;
+    }
+} else {
+    if ($name === '' || $email === '' || $content === '') {
+        echo json_encode(['success' => false, 'message' => '昵称、邮箱和评论内容均为必填项']);
+        exit;
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(['success' => false, 'message' => '邮箱格式不正确']);
+        exit;
+    }
 }
 
 $commentData = [
@@ -64,27 +74,40 @@ $commentData = [
 
 $result = addNewComment($articleId, $commentData);
 
-// addNewComment 返回 ['success'=>bool, 'message'=>str, 'comment_id'=>int, ...]
 $success   = $result['success'] ?? false;
 $message   = $result['message'] ?? ($success ? '评论提交成功' : '评论提交失败');
-$commentId = $result['comment_id'] ?? 0;
-$approved  = $result['approved']   ?? false;   // 是否直接过审
+$commentId = $result['comment_id'] ?? $result['new_comment_id'] ?? 0;
+$approved  = $result['approved'] ?? (isset($result['needs_moderation']) ? !$result['needs_moderation'] : false);
 
 // 如果已过审，附带评论数据供前端即时渲染
 $commentPayload = null;
 if ($success && $approved && $commentId) {
-    $avatarUrl = function_exists('getCommentAvatar')
-        ? getCommentAvatar($email, $isLoggedIn ? (int)$_SESSION['user']['id'] : 0)
-        : 'https://www.gravatar.com/avatar/' . md5(strtolower($email)) . '?s=38&d=mp';
+    $userId    = $isLoggedIn ? (int)$_SESSION['user']['id'] : 0;
+    if (function_exists('getCommentAvatar')) {
+        // 优先用 userId 查头像，email 可能为空（手机号注册用户）
+        $src = getCommentAvatar($email, $userId);
+        $avatarUrl = ($src && strpos($src, 'gravatar.com') === false)
+            ? $src
+            : (defined('DEFAULT_AVATAR_SVG') ? DEFAULT_AVATAR_SVG : 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 60 60%22%3E%3Crect width%3D%2260%22 height%3D%2260%22 rx%3D%2230%22 fill%3D%22%23b0b8c9%22%2F%3E%3Ccircle cx%3D%2230%22 cy%3D%2223%22 r%3D%2210%22 fill%3D%22%23fff%22%2F%3E%3Cellipse cx%3D%2230%22 cy%3D%2248%22 rx%3D%2215%22 ry%3D%2210%22 fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E');
+    } else {
+        $avatarUrl = defined('DEFAULT_AVATAR_SVG') ? DEFAULT_AVATAR_SVG : 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 60 60%22%3E%3Crect width%3D%2260%22 height%3D%2260%22 rx%3D%2230%22 fill%3D%22%23b0b8c9%22%2F%3E%3Ccircle cx%3D%2230%22 cy%3D%2223%22 r%3D%2210%22 fill%3D%22%23fff%22%2F%3E%3Cellipse cx%3D%2230%22 cy%3D%2248%22 rx%3D%2215%22 ry%3D%2210%22 fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E';
+    }
+
+    // 获取角标配置（仅登录用户才可能有角标）
+    $badge      = ($userId > 0) ? getUserBadge($userId) : null;
+    $badgeHtml  = renderAvatarWithBadge($avatarUrl, $name, $badge, 'fb-avatar', 16);
+    $titleHtml  = renderUserTitle($badge);
 
     $commentPayload = [
-        'id'         => $commentId,
-        'name'       => $name,
-        'email'      => $email,
-        'content'    => $content,
-        'parent_id'  => $parentId,
-        'created_at' => date('Y-m-d H:i'),
-        'avatar'     => $avatarUrl,
+        'id'          => $commentId,
+        'name'        => $name,
+        'email'       => $email,
+        'content'     => $content,
+        'parent_id'   => $parentId,
+        'created_at'  => date('Y-m-d H:i'),
+        'avatar'      => $avatarUrl,
+        'badge_html'  => $badgeHtml,   // 含角标的头像 HTML
+        'title_html'  => $titleHtml,   // 头衔 HTML（可能为空字符串）
     ];
 }
 

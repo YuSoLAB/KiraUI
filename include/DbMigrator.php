@@ -143,7 +143,9 @@ class DbMigrator
 
     /**
      * 安全添加索引：索引不存在时才执行 ALTER TABLE
+     *
      * @param string $type  INDEX | UNIQUE | FULLTEXT
+     *                      兼容历史误传的布尔值 true（等同于 'UNIQUE'）
      */
     public static function addIndexIfNotExists(
         PDO    $db,
@@ -153,6 +155,19 @@ class DbMigrator
         string $type = 'INDEX'
     ): void {
         if (self::indexExists($db, $table, $indexName)) return;
+
+        // 兼容旧版调用方误传 true（PHP 将其强制转为字符串 "1"）
+        if ($type === '1' || $type === 'true') {
+            $type = 'UNIQUE';
+        }
+
+        $allowed = ['INDEX', 'UNIQUE', 'FULLTEXT'];
+        if (!in_array(strtoupper($type), $allowed, true)) {
+            throw new \InvalidArgumentException(
+                "非法索引类型：{$type}，允许值：" . implode(' / ', $allowed)
+            );
+        }
+
         $db->exec("ALTER TABLE `{$table}` ADD {$type} `{$indexName}` ({$columns})");
     }
 

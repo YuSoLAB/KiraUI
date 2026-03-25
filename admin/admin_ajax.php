@@ -460,6 +460,17 @@ try {
             echo json_encode(['ok' => true, 'msg' => 'SMTP 配置已保存成功！']);
         }
 
+        // ── 注册模式配置 ─────────────────────────────────────
+        elseif ($act === 'save_registration') {
+            $mode = $_POST['registration_mode'] ?? 'phone';
+            if (!in_array($mode, ['phone', 'email', 'both'], true)) { $mode = 'phone'; }
+            $config->batchSet([
+                'registration_enabled' => !empty($_POST['registration_enabled']) ? '1' : '0',
+                'registration_mode'    => $mode,
+            ]);
+            echo json_encode(['ok' => true, 'msg' => '注册配置已保存成功！']);
+        }
+
         else {
             echo json_encode(['ok' => false, 'msg' => '未知配置操作']);
         }
@@ -830,6 +841,35 @@ try {
             ];
             saveRegistrationEmailSettings($settings);
             echo json_encode(['ok' => true, 'msg' => '注册邮箱设置已保存！']);
+
+        } elseif ($act === 'save_sms_settings') {
+            // 保存阿里云短信凭证到 Config
+            require_once ROOT_DIR . '/include/Config.php';
+            $cfg = Config::getInstance();
+            $keyId  = trim($_POST['aliyun_access_key_id']     ?? '');
+            $sign   = trim($_POST['aliyun_sms_sign_name']     ?? '');
+            $tpl    = trim($_POST['aliyun_sms_template_code'] ?? '100001');
+            $secret = trim($_POST['aliyun_access_key_secret'] ?? '');
+
+            if ($keyId !== '') { $cfg->set('aliyun_access_key_id',    $keyId); }
+            if ($sign  !== '') { $cfg->set('aliyun_sms_sign_name',    $sign);  }
+            if ($tpl   !== '') { $cfg->set('aliyun_sms_template_code', $tpl);  }
+            // Secret 仅在非空时覆盖，防止留空误清除
+            if ($secret !== '') { $cfg->set('aliyun_access_key_secret', $secret); }
+
+            echo json_encode(['ok' => true, 'msg' => '短信设置已保存']);
+
+        } elseif ($act === 'test_sms_connection') {
+            // 用已保存的凭证尝试初始化客户端（不实际发送短信）
+            require_once ROOT_DIR . '/include/Config.php';
+            require_once ROOT_DIR . '/include/AliSms.php';
+            try {
+                $sms = AliSms::fromConfig();
+                // 通过构建 Client 对象来验证凭证格式（不调用 API）
+                echo json_encode(['ok' => true, 'msg' => '凭证格式验证通过，SDK 客户端已成功初始化']);
+            } catch (\Throwable $e) {
+                echo json_encode(['ok' => false, 'msg' => '初始化失败：' . $e->getMessage()]);
+            }
         } else {
             echo json_encode(['ok' => false, 'msg' => '未知用户操作']);
         }
@@ -856,6 +896,48 @@ try {
             ];
             saveCommentSettings($settings);
             echo json_encode(['ok' => true, 'msg' => '评论设置已保存！']);
+
+        } elseif ($act === 'approve') {
+            $commentId = intval($_POST['comment_id'] ?? 0);
+            $articleId = intval($_POST['article_id'] ?? 0);
+            if ($commentId <= 0) { echo json_encode(['ok' => false, 'msg' => '无效的评论 ID']); exit; }
+            $ok = moderateComment($articleId, $commentId, true);
+            // 返回剩余待审数量，供前端更新徽章
+            $pending = (int)$db->query("SELECT COUNT(*) FROM comments WHERE approved = 0")->fetchColumn();
+            echo json_encode(['ok' => $ok, 'msg' => $ok ? '评论已通过审核' : '操作失败，请重试', 'pending' => $pending]);
+
+        } elseif ($act === 'reject') {
+            $commentId = intval($_POST['comment_id'] ?? 0);
+            $articleId = intval($_POST['article_id'] ?? 0);
+            if ($commentId <= 0) { echo json_encode(['ok' => false, 'msg' => '无效的评论 ID']); exit; }
+            $ok = moderateComment($articleId, $commentId, false);
+            $pending = (int)$db->query("SELECT COUNT(*) FROM comments WHERE approved = 0")->fetchColumn();
+            echo json_encode(['ok' => $ok, 'msg' => $ok ? '评论已拒绝' : '操作失败，请重试', 'pending' => $pending]);
+
+        } elseif ($act === 'delete') {
+            $commentId = intval($_POST['comment_id'] ?? 0);
+            $articleId = intval($_POST['article_id'] ?? 0);
+            if ($commentId <= 0) { echo json_encode(['ok' => false, 'msg' => '无效的评论 ID']); exit; }
+            $ok = deleteComment($articleId, $commentId);
+            $pending = (int)$db->query("SELECT COUNT(*) FROM comments WHERE approved = 0")->fetchColumn();
+            echo json_encode(['ok' => $ok, 'msg' => $ok ? '评论已删除' : '操作失败，请重试', 'pending' => $pending]);
+
+        } elseif ($act === 'approve_all') {
+            $stmt = $db->prepare("UPDATE comments SET approved = 1 WHERE approved = 0");
+            $stmt->execute();
+            $affected = $stmt->rowCount();
+            echo json_encode(['ok' => true, 'msg' => "已批量通过 {$affected} 条待审评论", 'pending' => 0]);
+
+        } elseif ($act === 'update_email_moderation') {
+            $emailHash = $_POST['email_hash'] ?? '';
+            $mode      = $_POST['mode'] ?? 'strict';
+            if ($emailHash && in_array($mode, ['auto', 'strict'], true)) {
+                updateEmailModeration($emailHash, $mode);
+                echo json_encode(['ok' => true, 'msg' => '邮箱审核模式已更新']);
+            } else {
+                echo json_encode(['ok' => false, 'msg' => '参数错误']);
+            }
+
         } else {
             echo json_encode(['ok' => false, 'msg' => '未知评论操作']);
         }
