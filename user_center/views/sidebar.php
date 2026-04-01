@@ -21,6 +21,10 @@ $navItems = [
         'label' => '我的消息',
         'icon'  => '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     ],
+    'email_prefs' => [
+        'label' => '消息设置',
+        'icon' => '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M20 8l-8 5-8-5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+    ],
 ];
 ?>
 <div class="sidebar">

@@ -150,6 +150,11 @@ try {
     $passwordHash  = password_hash($password, PASSWORD_DEFAULT);
     $phoneVerified = ($regMode === 'phone' || $regMode === 'both') ? 1 : 0;
 
+    // phone / email 按模式传 null（列已改为 NULL DEFAULT NULL）。
+    // MySQL UNIQUE 索引允许多个 NULL，不会触发重复约束。
+    $phoneVal = ($phone !== '') ? $phone : null;
+    $emailVal = ($email !== '') ? $email : null;
+
     $db->prepare(
         "INSERT INTO users
              (username, nickname, password_hash, phone, phone_verified, email, role, created_at, updated_at)
@@ -158,9 +163,9 @@ try {
         $username,
         $username,
         $passwordHash,
-        $phone ?: null,
+        $phoneVal,
         $phoneVerified,
-        $email ?: null,
+        $emailVal,
     ]);
 
     // ── Step 6：标记验证码已使用 ─────────────────────────────

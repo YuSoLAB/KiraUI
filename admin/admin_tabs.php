@@ -63,6 +63,8 @@
         data-tab="smtp" data-url="?page=smtp">SMTP管理</div>
     <div class="tab <?php echo $currentPage === 'email_notify' ? 'active' : ''; ?>" 
         data-tab="email_notify" data-url="?page=email_notify">邮件通知</div>
+    <div class="tab <?php echo $currentPage === 'comment_notify' ? 'active' : ''; ?>" 
+        data-tab="comment_notify" data-url="?page=comment_notify">评论通知</div>    
     <div class="tab <?php echo $currentPage === 'users' ? 'active' : ''; ?>" 
         data-tab="users" data-url="?page=users">用户管理</div>
     <div class="tab <?php echo $currentPage === 'user_badges' ? 'active' : ''; ?>" 

@@ -334,7 +334,8 @@
                 margin-bottom: 1.2rem;
                 padding-bottom: 1.2rem;
             }
-            .avatar-info { width: 100%; }
+            .avatar-info { width: 100%; text-align: center; }
+            .avatar-info h3 { justify-content: center; }
             .avatar-upload { justify-content: center; }
             .form-actions { flex-direction: column; align-items: stretch; }
             .form-actions .btn, .form-actions .btn-logout {

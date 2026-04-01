@@ -351,6 +351,9 @@ if ($isLoggedIn && $isInitialized) {
                         <div id="email_notify-content" class="tab-pane <?php echo $currentPage === 'email_notify' ? 'active' : ''; ?>">
                             <?php include 'admin_email_notify.php'; ?>
                         </div>
+                        <div id="comment_notify-content" class="tab-pane <?php echo $currentPage === 'comment_notify' ? 'active' : ''; ?>">
+                            <?php include 'admin_comment_notify.php'; ?>
+                        </div>
                         <div id="users-content" class="tab-pane <?php echo $currentPage === 'users' ? 'active' : ''; ?>">
                             <?php include 'admin_users.php'; ?>
                         </div>

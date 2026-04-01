@@ -72,7 +72,7 @@ require __DIR__ . '/views/layout_head.php';
 require __DIR__ . '/views/sidebar.php';
 
 // 主内容区：各标签页
-$tabs = ['profile', 'security', 'articles', 'messages'];
+$tabs = ['profile', 'security', 'articles', 'messages', 'email_prefs'];
 echo '<div class="main-content">';
 foreach ($tabs as $tab) {
     require __DIR__ . "/views/tab_{$tab}.php";

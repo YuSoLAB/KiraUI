@@ -460,6 +460,22 @@ try {
             echo json_encode(['ok' => true, 'msg' => 'SMTP 配置已保存成功！']);
         }
 
+        elseif ($act === 'test_smtp') {
+            $toEmail = trim($_POST['to_email'] ?? '');
+            if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+                echo json_encode(['ok' => false, 'msg' => '请输入有效的测试收件邮箱']);
+                exit;
+            }
+            require_once ROOT_DIR . '/include/Mailer.php';
+            $mailer = new Mailer();
+            if (!$mailer->isEnabled()) {
+                echo json_encode(['ok' => false, 'msg' => 'SMTP 未启用或配置不完整，请先保存 SMTP 配置']);
+                exit;
+            }
+            $result = $mailer->sendTestMail($toEmail);
+            echo json_encode(['ok' => $result['ok'], 'msg' => $result['msg']]);
+        }
+
         // ── 注册模式配置 ─────────────────────────────────────
         elseif ($act === 'save_registration') {
             $mode = $_POST['registration_mode'] ?? 'phone';
@@ -870,7 +886,42 @@ try {
             } catch (\Throwable $e) {
                 echo json_encode(['ok' => false, 'msg' => '初始化失败：' . $e->getMessage()]);
             }
-        } else {
+        } 
+        
+        elseif ($act === 'save_email_prefs') {
+            // 用户自助保存邮件通知偏好（用户中心 AJAX 调用）
+            // 此路由需验证是普通用户 Session（非管理员 Session）
+            // 若用户中心与后台共用 admin_ajax.php，请在此处检查
+            // $_SESSION['user_logged_in'] 而非 $_SESSION['admin_logged_in']
+        
+            $uid    = (int)($_SESSION['user']['id'] ?? 0);
+            if ($uid <= 0) {
+                echo json_encode(['ok' => false, 'msg' => '未登录']);
+                exit;
+            }
+            $newVal = (isset($_POST['notify_on_reply']) && $_POST['notify_on_reply'] === '1') ? 1 : 0;
+        
+            try {
+                // 确保列存在
+                $chk = $db->query(
+                    "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME   = 'users'
+                    AND COLUMN_NAME  = 'notify_on_reply'"
+                );
+                if (!$chk || !$chk->fetch()) {
+                    $db->exec("ALTER TABLE users ADD COLUMN notify_on_reply TINYINT(1) NOT NULL DEFAULT 1");
+                }
+        
+                $upd = $db->prepare("UPDATE users SET notify_on_reply = ? WHERE id = ?");
+                $upd->execute([$newVal, $uid]);
+                $_SESSION['user']['notify_on_reply'] = $newVal;
+                echo json_encode(['ok' => true, 'msg' => '设置已保存']);
+            } catch (PDOException $e) {
+                echo json_encode(['ok' => false, 'msg' => '保存失败：' . $e->getMessage()]);
+            }
+        }
+        else {
             echo json_encode(['ok' => false, 'msg' => '未知用户操作']);
         }
     }
@@ -895,6 +946,15 @@ try {
                     explode("\n", str_replace("\r", "\n", $_POST['blocked_domains'] ?? ''))))),
             ];
             saveCommentSettings($settings);
+
+            // ── 持久化 notify_admin ───────────────────────────────────
+            $notifyAdmin = !empty($_POST['notify_admin']) ? 1 : 0;
+            try {
+                $db->exec("UPDATE comment_settings SET notify_admin = {$notifyAdmin} WHERE id = 1");
+            } catch (PDOException $naE) {
+                error_log('[save_settings] notify_admin: ' . $naE->getMessage());
+            }
+
             echo json_encode(['ok' => true, 'msg' => '评论设置已保存！']);
 
         } elseif ($act === 'approve') {
@@ -1078,6 +1138,58 @@ try {
         }
     }
 
+    elseif ($type === 'comment_notify') {
+    
+        // 只允许有效值
+        $toInt = function ($key) {
+            return isset($_POST[$key]) && $_POST[$key] === '1' ? 1 : 0;
+        };
+    
+        $emailNotifyEnabled = $toInt('email_notify_enabled');
+        $notifyAdmin        = $toInt('notify_admin');
+        $notifyGuestReply   = $toInt('notify_guest_reply');
+    
+        try {
+            // 确保列存在（首次使用时自动补列，免手动执行 SQL）
+            $colCheck = $db->query(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME   = 'comment_settings'
+                AND COLUMN_NAME IN ('email_notify_enabled','notify_admin','notify_guest_reply')"
+            );
+            $existingCols = $colCheck ? array_column($colCheck->fetchAll(PDO::FETCH_ASSOC), 'COLUMN_NAME') : [];
+    
+            foreach ([
+                'email_notify_enabled' => 'TINYINT(1) NOT NULL DEFAULT 1',
+                'notify_admin'         => 'TINYINT(1) NOT NULL DEFAULT 1',
+                'notify_guest_reply'   => 'TINYINT(1) NOT NULL DEFAULT 1',
+            ] as $col => $def) {
+                if (!in_array($col, $existingCols)) {
+                    $db->exec("ALTER TABLE comment_settings ADD COLUMN `{$col}` {$def}");
+                }
+            }
+    
+            // 确保有一条记录
+            $cnt = (int)$db->query("SELECT COUNT(*) FROM comment_settings")->fetchColumn();
+            if ($cnt === 0) {
+                $db->exec("INSERT INTO comment_settings (id, email_mode, default_moderation, enable_comments) VALUES (1,'all','strict',1)");
+            }
+    
+            $upd = $db->prepare(
+                "UPDATE comment_settings
+                SET email_notify_enabled = ?,
+                    notify_admin         = ?,
+                    notify_guest_reply   = ?
+                WHERE id = 1"
+            );
+            $upd->execute([$emailNotifyEnabled, $notifyAdmin, $notifyGuestReply]);
+    
+            echo json_encode(['ok' => true, 'msg' => '通知设置已保存']);
+        } catch (PDOException $e) {
+            echo json_encode(['ok' => false, 'msg' => '保存失败：' . $e->getMessage()]);
+        }
+    }
+
     else {
         echo json_encode(['ok'=>false,'msg'=>'未知请求类型']);
     }
@@ -1124,8 +1236,9 @@ function _updateTagStats(PDO $db): void {
 function _clearArticleCache(): void {
     if (!defined('ROOT_DIR')) { return; }
     $cacheDir = ROOT_DIR . '/cache/';
+    $dataDir  = $cacheDir . 'data/';
 
-    // ArticleIndex 常见缓存文件名
+    // 1) 清除可能的旧格式缓存文件（历史兼容）
     $targets = [
         $cacheDir . 'article_index.json',
         $cacheDir . 'article_index.php',
@@ -1135,26 +1248,34 @@ function _clearArticleCache(): void {
         if (file_exists($f)) { @unlink($f); }
     }
 
-    // FileCache 通配清除（all_articles* / article_*）
-    if (is_dir($cacheDir)) {
-        foreach (array_merge(
-            glob($cacheDir . 'all_articles*') ?: [],
-            glob($cacheDir . 'article_*')     ?: []
-        ) as $f) {
-            @unlink($f);
-        }
-    }
-
-    // 通过 FileCache API 精确删除，确保封面图更新后缓存立即失效
+    // 2) 通过 FileCache API 精确删除核心缓存 key
     try {
         if (file_exists(ROOT_DIR . '/cache/FileCache.php')) {
             require_once ROOT_DIR . '/cache/FileCache.php';
             $cache = new FileCache();
             $cache->delete('article_index');
             $cache->delete('all_articles_basic');
+            // 遍历所有已发布文章，清除每篇文章的内容缓存
+            global $db;
+            if ($db) {
+                $stmt = $db->query("SELECT id FROM articles");
+                while ($row = $stmt->fetch()) {
+                    $cache->delete('article_content_' . $row['id']);
+                }
+            }
         }
     } catch (Exception $e) {
         error_log('_clearArticleCache FileCache error: ' . $e->getMessage());
+    }
+
+    // 3) 清除 cache/data/ 下所有 FileCache 生成的缓存文件（彻底清除）
+    if (is_dir($dataDir)) {
+        $files = glob($dataDir . '*.cache');
+        if ($files) {
+            foreach ($files as $f) {
+                if (is_file($f)) { @unlink($f); }
+            }
+        }
     }
 }
 
