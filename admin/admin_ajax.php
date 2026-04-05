@@ -194,6 +194,7 @@ try {
                 'site_title'   => $_POST['site_title']   ?? '',
                 'welcome_text' => $_POST['welcome_text'] ?? '',
                 'html_title'   => $_POST['html_title']   ?? '',
+                'site_url'     => rtrim($_POST['site_url'] ?? '', '/'),
             ]);
             echo json_encode(['ok' => true, 'msg' => '网站信息已保存成功！']);
         }

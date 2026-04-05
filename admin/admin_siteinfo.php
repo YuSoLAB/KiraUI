@@ -7,6 +7,7 @@ $siteConfig = [
     'site_title'   => $config->get('site_title', '测试网站'),
     'welcome_text' => $config->get('welcome_text', '这是一个网站'),
     'html_title'   => $config->get('html_title', 'YuSoLAB'),
+    'site_url'     => $config->get('site_url', ''),
 ];
 
 $ajaxUrl = 'admin_ajax.php';
@@ -200,6 +201,11 @@ body.dark-mode .ajax-msg.error   { background:#3a1a1a; color:#fc8181; border-col
                 <label>HTML 页面标题</label>
                 <input type="text" name="html_title" value="<?php echo htmlspecialchars($siteConfig['html_title']); ?>" required>
                 <small style="color:var(--sub,#999);font-size:.76rem;">此标题将显示在浏览器标题栏中</small>
+            </div>
+            <div class="mfg" style="margin-bottom:1rem;">
+                <label>站点域名</label>
+                <input type="text" name="site_url" value="<?php echo htmlspecialchars($siteConfig['site_url']); ?>" placeholder="https://example.com">
+                <small style="color:var(--sub,#999);font-size:.76rem;">用于邮件通知中生成可点击的完整链接，末尾不加斜杠</small>
             </div>
             <button type="submit" class="btn btn-primary" id="si-info-btn">💾 保存网站信息</button>
         </form>

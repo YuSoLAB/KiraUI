@@ -356,17 +356,21 @@ body.dark-mode .en-tpl-bar { border-bottom-color:rgba(176,160,255,.1); }
                         ?>
                         <label class="en-user-item"
                                data-name="<?php echo htmlspecialchars(strtolower($u['username'])); ?>"
-                               data-email="<?php echo htmlspecialchars(strtolower($u['email'])); ?>"
+                               data-email="<?php echo htmlspecialchars(strtolower($u['email'] ?? '')); ?>"
                                data-role="<?php echo htmlspecialchars($u['role']); ?>">
                             <input type="checkbox" class="en-user-chk"
                                    name="recipient[]"
                                    value="<?php echo (int)$u['id']; ?>"
-                                   data-email="<?php echo htmlspecialchars($u['email']); ?>"
+                                   data-email="<?php echo htmlspecialchars($u['email'] ?? ''); ?>"
                                    data-name="<?php echo htmlspecialchars($display); ?>">
                             <span class="en-user-avatar"><?php echo $initials; ?></span>
                             <span class="en-user-info">
                                 <span class="en-user-name"><?php echo htmlspecialchars($display); ?></span>
-                                <span class="en-user-email"><?php echo htmlspecialchars($u['email']); ?></span>
+                                <span class="en-user-email"><?php
+                                    echo !empty($u['email'])
+                                        ? htmlspecialchars($u['email'])
+                                        : '<span style="font-style:italic;opacity:.6;">未绑定邮箱</span>';
+                                ?></span>
                             </span>
                             <span class="en-role-badge <?php echo $roleCls; ?>"><?php echo $roleLabel; ?></span>
                         </label>

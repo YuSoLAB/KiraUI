@@ -196,7 +196,13 @@ body.dark-mode textarea::placeholder { color: #6b6b8a !important; }
             <span style="color:var(--sub,#aaa);"><?php echo $user['id']; ?></span>
             <span style="font-weight:600;"><?php echo htmlspecialchars($user['username']); ?></span>
             <span><?php echo htmlspecialchars($user['nickname'] ?? ''); ?></span>
-            <span style="word-break:break-all;"><?php echo htmlspecialchars($user['email']); ?></span>
+            <span style="word-break:break-all;"><?php
+                if (!empty($user['email'])) {
+                    echo htmlspecialchars($user['email']);
+                } else {
+                    echo '<span style="color:var(--sub,#aaa);font-style:italic;font-size:.8rem;">未绑定邮箱</span>';
+                }
+            ?></span>
             <span style="color:var(--sub,#888);"><?php echo substr($user['created_at'], 0, 10); ?></span>
             <span><span class="mbadge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></span>
             <form method="post" class="usr-status-form">
