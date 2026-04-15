@@ -3,6 +3,7 @@
 ![:name](https://count.getloli.com/@kiraui?name=kiraui&theme=random&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
 
 <img src="./img/kiraui.png" style="width:50%;">
+
 # KiraUI
 
 [![License: GPL 2.0](https://img.shields.io/badge/license-GPL%202.0-blue)](https://www.gnu.org/licenses/gpl-2.0.html)

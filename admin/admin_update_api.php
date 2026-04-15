@@ -31,14 +31,13 @@ $step = $_POST['step'] ?? '';
 // 不被覆盖的文件和目录
 $excludes = [
     'include/Db.php',
-    'yusolab.sql',
     'img',
     'uploads',
     'cache/data',
     '.git'
 ];
 
-// ▼ 修复：统一输出 JSON 并清空输出缓冲，防止脏数据污染响应
+// 统一输出 JSON 并清空输出缓冲，防止脏数据污染响应
 function jsonOut(array $data): void {
     ob_end_clean();
     echo json_encode($data);
