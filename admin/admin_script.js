@@ -45,25 +45,42 @@ function switchToPage(pageIdentifier) {
 }
 
 // 绑定点击事件
-document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', (e) => {
-        e.preventDefault();
+// document.querySelectorAll('.tab').forEach(tab => {
+//     tab.addEventListener('click', (e) => {
+//         e.preventDefault();
         
-        const url = tab.getAttribute('data-url');
-        const tabId = tab.getAttribute('data-tab');
+//         const url = tab.getAttribute('data-url');
+//         const tabId = tab.getAttribute('data-tab');
 
-        // 更新浏览器历史记录
-        if (url) {
-            history.pushState(null, '', url);
-        }
+//         // 更新浏览器历史记录
+//         if (url) {
+//             history.pushState(null, '', url);
+//         }
 
-        // 执行切换
-        switchToPage(tabId);
-    });
-});
+//         // 执行切换
+//         switchToPage(tabId);
+//     });
+// });
 
 // 页面加载完成时初始化
 document.addEventListener('DOMContentLoaded', function() {
+        // 绑定点击事件
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            const url = tab.getAttribute('data-url');
+            const tabId = tab.getAttribute('data-tab');
+
+            // 更新浏览器历史记录
+            if (url) {
+                history.pushState(null, '', url);
+            }
+
+            // 执行切换
+            switchToPage(tabId);
+        });
+    });
     // 解析当前 URL 参数
     const urlParams = new URLSearchParams(window.location.search);
     const currentPage = urlParams.get('page') || 'siteinfo';
