@@ -2,6 +2,7 @@
 
 ![:name](https://count.getloli.com/@kiraui?name=kiraui&theme=random&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
 
+![logo](./img/kiraui.png)
 # KiraUI
 
 [![License: GPL 2.0](https://img.shields.io/badge/license-GPL%202.0-blue)](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -152,10 +153,14 @@ server {
    if ($php_redir = "G") {
       rewrite ^/([^/]+)\.php$ /$1 permanent;
    }
-   rewrite ^/([^./]+(?:/[^./]+)*)/?$ /$1.php last;
 
    location / {
-      try_files $uri $uri/ /index.php?$query_string;
+      index index.php index.html;
+      try_files $uri $uri/ @php_rewrite;
+   }
+
+   location @php_rewrite {
+      rewrite ^/([^./]+(?:/[^./]+)*)/?$ /$1.php last;
    }
 }
 ```
